@@ -644,5 +644,35 @@
     "aiEnhanced": false,
     "created_at": "2026-04-12T13:55:00.477Z",
     "result": "pending"
+  },
+  {
+    "id": "1776002400296",
+    "fixtureId": 19425508,
+    "home": "Motor Lublin",
+    "away": "Raków Częstochowa",
+    "league": "Ekstraklasa",
+    "minute": 55,
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "xG": {
+      "home": 1.21,
+      "away": 1.09,
+      "total": 2.3
+    },
+    "dangerAttacks": 66,
+    "shots": 12,
+    "pressure": 100,
+    "xGGap": 2.3,
+    "totalGoals": 0,
+    "betType": "Both Teams to Score",
+    "expectedScore": "1-1",
+    "confidence": "high",
+    "reason": "xGGap: 2.30, Danger Attacks: 66, xG: 2.30",
+    "aiInsight": "",
+    "aiEnhanced": false,
+    "created_at": "2026-04-12T14:00:00.296Z",
+    "result": "pending"
   }
 ]
