@@ -1,0 +1,15 @@
+{
+  "type": "module",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "cors": "latest",
+    "dotenv": "latest",
+    "express": "latest",
+    "node-cron": "latest",
+    "node-fetch": "latest"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  }
+}

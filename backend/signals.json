@@ -1,0 +1,648 @@
+[
+  {
+    "id": "1775909580415",
+    "fixtureId": 19434198,
+    "home": "Preußen Münster",
+    "away": "SpVgg Greuther Fürth",
+    "league": "2. Bundesliga",
+    "minute": 55,
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "xG": {
+      "home": 0.6,
+      "away": 1.25,
+      "total": 1.85
+    },
+    "dangerAttacks": 57,
+    "shots": 10,
+    "pressure": 100,
+    "xGGap": 1.85,
+    "totalGoals": 0,
+    "betType": "Back Over 1.5 Goals",
+    "expectedScore": "1-1",
+    "confidence": "medium",
+    "reason": "xGGap: 1.85, Danger Attacks: 57, xG: 1.85",
+    "created_at": "2026-04-11T12:13:00.415Z",
+    "result": "loss"
+  },
+  {
+    "id": "1775909640433",
+    "fixtureId": 19434196,
+    "home": "Hertha BSC",
+    "away": "Kaiserslautern",
+    "league": "2. Bundesliga",
+    "minute": 57,
+    "score": {
+      "home": 0,
+      "away": 1
+    },
+    "xG": {
+      "home": 1.08,
+      "away": 1.27,
+      "total": 2.35
+    },
+    "dangerAttacks": 47,
+    "shots": 15,
+    "pressure": 100,
+    "xGGap": 1.35,
+    "totalGoals": 1,
+    "betType": "Back Over 1.5 Goals",
+    "expectedScore": "1-1",
+    "confidence": "medium",
+    "reason": "xGGap: 1.35, Danger Attacks: 47, xG: 2.35",
+    "created_at": "2026-04-11T12:14:00.433Z",
+    "result": "loss"
+  },
+  {
+    "id": "1775911200337",
+    "fixtureId": 19432246,
+    "home": "Queens Park Rangers",
+    "away": "Bristol City",
+    "league": "Championship",
+    "minute": 55,
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "xG": {
+      "home": 1.08,
+      "away": 1.83,
+      "total": 2.91
+    },
+    "dangerAttacks": 40,
+    "shots": 16,
+    "pressure": 100,
+    "xGGap": 2.91,
+    "totalGoals": 0,
+    "betType": "Both Teams to Score",
+    "expectedScore": "1-2",
+    "confidence": "high",
+    "reason": "xGGap: 2.91, Danger Attacks: 40, xG: 2.91",
+    "created_at": "2026-04-11T12:40:00.337Z",
+    "result": "loss"
+  },
+  {
+    "id": "1775911320353",
+    "fixtureId": 19432241,
+    "home": "Coventry City",
+    "away": "Sheffield Wednesday",
+    "league": "Championship",
+    "minute": 55,
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "xG": {
+      "home": 1.27,
+      "away": 0.24,
+      "total": 1.51
+    },
+    "dangerAttacks": 57,
+    "shots": 16,
+    "pressure": 100,
+    "xGGap": 1.51,
+    "totalGoals": 0,
+    "betType": "Back Over 1.5 Goals",
+    "expectedScore": "1-0",
+    "confidence": "medium",
+    "reason": "xGGap: 1.51, Danger Attacks: 57, xG: 1.51",
+    "created_at": "2026-04-11T12:42:00.353Z",
+    "result": "loss"
+  },
+  {
+    "id": "1775912400505",
+    "fixtureId": 19432244,
+    "home": "Norwich City",
+    "away": "Ipswich Town",
+    "league": "Championship",
+    "minute": 73,
+    "score": {
+      "home": 0,
+      "away": 2
+    },
+    "xG": {
+      "home": 1.62,
+      "away": 1.6,
+      "total": 3.22
+    },
+    "dangerAttacks": 61,
+    "shots": 18,
+    "pressure": 100,
+    "xGGap": 1.22,
+    "totalGoals": 2,
+    "betType": "Back Over 2.5 Goals",
+    "expectedScore": "2-2",
+    "confidence": "medium",
+    "reason": "xGGap: 1.22, Danger Attacks: 61, xG: 3.22",
+    "created_at": "2026-04-11T13:00:00.505Z",
+    "result": "loss"
+  },
+  {
+    "id": "1775912567222",
+    "fixtureId": 19443183,
+    "home": "İstanbul Başakşehir",
+    "away": "Gençlerbirliği",
+    "league": "Super Lig",
+    "minute": 76,
+    "score": {
+      "home": 3,
+      "away": 0
+    },
+    "xG": {
+      "home": 3,
+      "away": 1.33,
+      "total": 4.33
+    },
+    "dangerAttacks": 69,
+    "shots": 27,
+    "pressure": 100,
+    "xGGap": 1.33,
+    "totalGoals": 3,
+    "betType": "Back Over 2.5 Goals",
+    "expectedScore": "3-1",
+    "confidence": "medium",
+    "reason": "xGGap: 1.33, Danger Attacks: 69, xG: 4.33",
+    "created_at": "2026-04-11T13:02:47.222Z",
+    "result": "win"
+  },
+  {
+    "id": "1775912940464",
+    "fixtureId": 19539262,
+    "home": "Boulogne",
+    "away": "Le Mans",
+    "league": "Ligue 2",
+    "minute": 55,
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "xG": {
+      "home": 0.68,
+      "away": 0.92,
+      "total": 1.6
+    },
+    "dangerAttacks": 40,
+    "shots": 8,
+    "pressure": 100,
+    "xGGap": 1.6,
+    "totalGoals": 0,
+    "betType": "Back Over 1.5 Goals",
+    "expectedScore": "1-1",
+    "confidence": "medium",
+    "reason": "xGGap: 1.60, Danger Attacks: 40, xG: 1.60",
+    "created_at": "2026-04-11T13:09:00.464Z",
+    "result": "loss"
+  },
+  {
+    "id": "1775913000525",
+    "fixtureId": 19432246,
+    "home": "Queens Park Rangers",
+    "away": "Bristol City",
+    "league": "Championship",
+    "minute": 85,
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "xG": {
+      "home": 1.31,
+      "away": 1.95,
+      "total": 3.26
+    },
+    "dangerAttacks": 63,
+    "shots": 21,
+    "pressure": 100,
+    "xGGap": 3.26,
+    "totalGoals": 0,
+    "betType": "Both Teams to Score",
+    "expectedScore": "1-2",
+    "confidence": "high",
+    "reason": "xGGap: 3.26, Danger Attacks: 63, xG: 3.26",
+    "created_at": "2026-04-11T13:10:00.525Z",
+    "result": "loss"
+  },
+  {
+    "id": "1775913120393",
+    "fixtureId": 19432241,
+    "home": "Coventry City",
+    "away": "Sheffield Wednesday",
+    "league": "Championship",
+    "minute": 85,
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "xG": {
+      "home": 2.15,
+      "away": 0.38,
+      "total": 2.53
+    },
+    "dangerAttacks": 102,
+    "shots": 23,
+    "pressure": 100,
+    "xGGap": 2.53,
+    "totalGoals": 0,
+    "betType": "Back Over 1.5 Goals",
+    "expectedScore": "2-0",
+    "confidence": "high",
+    "reason": "xGGap: 2.53, Danger Attacks: 102, xG: 2.53",
+    "created_at": "2026-04-11T13:12:00.393Z",
+    "result": "loss"
+  },
+  {
+    "id": "1775916060425",
+    "fixtureId": 19425510,
+    "home": "Widzew Lodz",
+    "away": "Nieciecza",
+    "league": "Ekstraklasa",
+    "minute": 58,
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "xG": {
+      "home": 1,
+      "away": 1.16,
+      "total": 2.16
+    },
+    "dangerAttacks": 78,
+    "shots": 15,
+    "pressure": 100,
+    "xGGap": 2.16,
+    "totalGoals": 0,
+    "betType": "Back Over 1.5 Goals",
+    "expectedScore": "1-1",
+    "confidence": "high",
+    "reason": "xGGap: 2.16, Danger Attacks: 78, xG: 2.16",
+    "created_at": "2026-04-11T14:01:00.425Z",
+    "result": "loss"
+  },
+  {
+    "id": "1775916780409",
+    "fixtureId": 19636038,
+    "home": "IFK Göteborg",
+    "away": "Häcken",
+    "league": "Allsvenskan",
+    "minute": 55,
+    "score": {
+      "home": 0,
+      "away": 1
+    },
+    "xG": {
+      "home": 1.73,
+      "away": 1.16,
+      "total": 2.89
+    },
+    "dangerAttacks": 38,
+    "shots": 17,
+    "pressure": 100,
+    "xGGap": 1.89,
+    "totalGoals": 1,
+    "betType": "Back Over 1.5 Goals",
+    "expectedScore": "2-1",
+    "confidence": "medium",
+    "reason": "xGGap: 1.89, Danger Attacks: 38, xG: 2.89",
+    "created_at": "2026-04-11T14:13:00.409Z",
+    "result": "win"
+  },
+  {
+    "id": "1775916840428",
+    "fixtureId": 19425193,
+    "home": "Cagliari",
+    "away": "Cremonese",
+    "league": "Serie A",
+    "minute": 55,
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "xG": {
+      "home": 1.26,
+      "away": 1.05,
+      "total": 2.31
+    },
+    "dangerAttacks": 44,
+    "shots": 11,
+    "pressure": 100,
+    "xGGap": 2.31,
+    "totalGoals": 0,
+    "betType": "Both Teams to Score",
+    "expectedScore": "1-1",
+    "confidence": "high",
+    "reason": "xGGap: 2.31, Danger Attacks: 44, xG: 2.31",
+    "created_at": "2026-04-11T14:14:00.428Z",
+    "result": "loss"
+  },
+  {
+    "id": "1775916840429",
+    "fixtureId": 19509392,
+    "home": "Südtirol",
+    "away": "Modena",
+    "league": "Serie B",
+    "minute": 55,
+    "score": {
+      "home": 0,
+      "away": 1
+    },
+    "xG": {
+      "home": 1.92,
+      "away": 1.25,
+      "total": 3.17
+    },
+    "dangerAttacks": 79,
+    "shots": 22,
+    "pressure": 100,
+    "xGGap": 2.17,
+    "totalGoals": 1,
+    "betType": "Back Over 1.5 Goals",
+    "expectedScore": "2-1",
+    "confidence": "high",
+    "reason": "xGGap: 2.17, Danger Attacks: 79, xG: 3.17",
+    "created_at": "2026-04-11T14:14:00.429Z",
+    "result": "win"
+  },
+  {
+    "id": "1775917320528",
+    "fixtureId": 19636037,
+    "home": "Mjällby",
+    "away": "Örgryte",
+    "league": "Allsvenskan",
+    "minute": 64,
+    "score": {
+      "home": 0,
+      "away": 2
+    },
+    "xG": {
+      "home": 1.75,
+      "away": 1.62,
+      "total": 3.37
+    },
+    "dangerAttacks": 71,
+    "shots": 18,
+    "pressure": 100,
+    "xGGap": 1.37,
+    "totalGoals": 2,
+    "betType": "Back Over 2.5 Goals",
+    "expectedScore": "2-2",
+    "confidence": "medium",
+    "reason": "xGGap: 1.37, Danger Attacks: 71, xG: 3.37",
+    "created_at": "2026-04-11T14:22:00.528Z",
+    "result": "loss"
+  },
+  {
+    "id": "1775918520459",
+    "fixtureId": 19433733,
+    "home": "RB Leipzig",
+    "away": "Borussia Mönchengladbach",
+    "league": "Bundesliga",
+    "minute": 55,
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "xG": {
+      "home": 2.96,
+      "away": 1.02,
+      "total": 3.98
+    },
+    "dangerAttacks": 67,
+    "shots": 19,
+    "pressure": 100,
+    "xGGap": 3.98,
+    "totalGoals": 0,
+    "betType": "Both Teams to Score",
+    "expectedScore": "3-1",
+    "confidence": "high",
+    "reason": "xGGap: 3.98, Danger Attacks: 67, xG: 3.98",
+    "created_at": "2026-04-11T14:42:00.459Z",
+    "result": "loss"
+  },
+  {
+    "id": "1775918940356",
+    "fixtureId": 19433730,
+    "home": "Borussia Dortmund",
+    "away": "Bayer 04 Leverkusen",
+    "league": "Bundesliga",
+    "minute": 62,
+    "score": {
+      "home": 0,
+      "away": 1
+    },
+    "xG": {
+      "home": 0.99,
+      "away": 1.23,
+      "total": 2.22
+    },
+    "dangerAttacks": 60,
+    "shots": 17,
+    "pressure": 100,
+    "xGGap": 1.22,
+    "totalGoals": 1,
+    "betType": "Back Over 1.5 Goals",
+    "expectedScore": "1-1",
+    "confidence": "medium",
+    "reason": "xGGap: 1.22, Danger Attacks: 60, xG: 2.22",
+    "created_at": "2026-04-11T14:49:00.356Z",
+    "result": "loss"
+  },
+  {
+    "id": "1775918940363",
+    "fixtureId": 19433735,
+    "home": "VfL Wolfsburg",
+    "away": "Eintracht Frankfurt",
+    "league": "Bundesliga",
+    "minute": 62,
+    "score": {
+      "home": 0,
+      "away": 2
+    },
+    "xG": {
+      "home": 1.5,
+      "away": 1.7,
+      "total": 3.2
+    },
+    "dangerAttacks": 59,
+    "shots": 17,
+    "pressure": 100,
+    "xGGap": 1.2,
+    "totalGoals": 2,
+    "betType": "Back Over 2.5 Goals",
+    "expectedScore": "2-2",
+    "confidence": "medium",
+    "reason": "xGGap: 1.20, Danger Attacks: 59, xG: 3.20",
+    "created_at": "2026-04-11T14:49:00.363Z",
+    "result": "win"
+  },
+  {
+    "id": "1775994120352",
+    "fixtureId": 19425196,
+    "home": "Genoa",
+    "away": "Sassuolo",
+    "league": "Serie A",
+    "minute": 55,
+    "score": {
+      "home": 1,
+      "away": 0
+    },
+    "xG": {
+      "home": 1.91,
+      "away": 1.68,
+      "total": 3.59
+    },
+    "dangerAttacks": 41,
+    "shots": 22,
+    "pressure": 100,
+    "xGGap": 2.59,
+    "totalGoals": 1,
+    "betType": "Back Over 1.5 Goals",
+    "expectedScore": "2-2",
+    "confidence": "high",
+    "reason": "xGGap: 2.59, Danger Attacks: 41, xG: 3.59",
+    "created_at": "2026-04-12T11:42:00.352Z",
+    "result": "win"
+  },
+  {
+    "id": "1775994120355",
+    "fixtureId": 19429456,
+    "home": "Fortuna Sittard",
+    "away": "NAC Breda",
+    "league": "Eredivisie",
+    "minute": 67,
+    "score": {
+      "home": 1,
+      "away": 0
+    },
+    "xG": {
+      "home": 0.75,
+      "away": 1.52,
+      "total": 2.27
+    },
+    "dangerAttacks": 63,
+    "shots": 15,
+    "pressure": 100,
+    "xGGap": 1.27,
+    "totalGoals": 1,
+    "betType": "Back Over 1.5 Goals",
+    "expectedScore": "1-2",
+    "confidence": "medium",
+    "reason": "xGGap: 1.27, Danger Attacks: 63, xG: 2.27",
+    "created_at": "2026-04-12T11:42:00.355Z",
+    "result": "win"
+  },
+  {
+    "id": "1775998920280",
+    "fixtureId": 19443190,
+    "home": "Konyaspor",
+    "away": "Fatih Karagümrük",
+    "league": "Super Lig",
+    "minute": 76,
+    "score": {
+      "home": 2,
+      "away": 0
+    },
+    "xG": {
+      "home": 2.1,
+      "away": 1.38,
+      "total": 3.48
+    },
+    "dangerAttacks": 78,
+    "shots": 16,
+    "pressure": 100,
+    "xGGap": 1.48,
+    "totalGoals": 2,
+    "betType": "Back Over 2.5 Goals",
+    "expectedScore": "2-1",
+    "confidence": "medium",
+    "reason": "xGGap: 1.48, Danger Attacks: 78, xG: 3.48",
+    "created_at": "2026-04-12T13:02:00.280Z",
+    "result": "win"
+  },
+  {
+    "id": "1775999040349",
+    "fixtureId": 19694610,
+    "home": "Mechelen",
+    "away": "Union Saint-Gilloise",
+    "league": "Pro League",
+    "minute": 74,
+    "score": {
+      "home": 0,
+      "away": 1
+    },
+    "xG": {
+      "home": 0.39,
+      "away": 2.07,
+      "total": 2.46
+    },
+    "dangerAttacks": 76,
+    "shots": 16,
+    "pressure": 100,
+    "xGGap": 1.46,
+    "totalGoals": 1,
+    "betType": "Back Over 1.5 Goals",
+    "expectedScore": "0-2",
+    "confidence": "medium",
+    "reason": "xGGap: 1.46, Danger Attacks: 76, xG: 2.46",
+    "created_at": "2026-04-12T13:04:00.349Z",
+    "result": "loss"
+  },
+  {
+    "id": "1776001560472",
+    "fixtureId": 19687512,
+    "home": "Sturm Graz",
+    "away": "Hartberg",
+    "league": "Admiral Bundesliga",
+    "minute": 59,
+    "score": {
+      "home": 0,
+      "away": 0
+    },
+    "xG": {
+      "home": 0.87,
+      "away": 0.71,
+      "total": 1.58
+    },
+    "dangerAttacks": 61,
+    "shots": 28,
+    "pressure": 100,
+    "xGGap": 1.58,
+    "totalGoals": 0,
+    "betType": "Back Over 1.5 Goals",
+    "expectedScore": "1-1",
+    "confidence": "medium",
+    "reason": "xGGap: 1.58, Danger Attacks: 61, xG: 1.58",
+    "created_at": "2026-04-12T13:46:00.472Z",
+    "result": "pending"
+  },
+  {
+    "id": "1776002100477",
+    "fixtureId": 19429458,
+    "home": "NEC Nijmegen",
+    "away": "Feyenoord",
+    "league": "Eredivisie",
+    "minute": 65,
+    "score": {
+      "home": 0,
+      "away": 1
+    },
+    "xG": {
+      "home": 0.84,
+      "away": 1.7,
+      "total": 2.54
+    },
+    "dangerAttacks": 59,
+    "shots": 18,
+    "pressure": 100,
+    "xGGap": 1.54,
+    "totalGoals": 1,
+    "betType": "Back Over 1.5 Goals",
+    "expectedScore": "1-2",
+    "confidence": "medium",
+    "reason": "xGGap: 1.54, Danger Attacks: 59, xG: 2.54",
+    "aiInsight": "",
+    "aiEnhanced": false,
+    "created_at": "2026-04-12T13:55:00.477Z",
+    "result": "pending"
+  }
+]
