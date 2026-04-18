@@ -1,5 +1,5 @@
 export function generateSignal(match) {
-  const { minute, xGGap, dangerAttacks, xG, totalGoals, score } = match;
+  const { minute, xGGap, dangerAttacks, xG, totalGoals, score, odds } = match;
   if (
     minute < 55 || minute > 85 ||
     xGGap < 1.2 ||
@@ -17,6 +17,17 @@ export function generateSignal(match) {
     betType = 'Both Teams to Score';
   }
 
+  // Get odds for the selected bet type
+  let betOdds = null;
+  if (odds) {
+    if (betType === 'Back Over 1.5 Goals') betOdds = odds.over15 || null;
+    else if (betType === 'Back Over 2.5 Goals') betOdds = odds.over25 || null;
+    else if (betType === 'Both Teams to Score') betOdds = odds.btts || null;
+  }
+
+  // Ignore opportunities with odds less than or equal to 1.5
+  if (betOdds !== null && betOdds <= 1.5) return null;
+
   let confidence = 'low';
   if (xGGap >= 2.0 && dangerAttacks >= 12) {
     confidence = 'high';
@@ -32,6 +43,7 @@ export function generateSignal(match) {
     expectedScore,
     confidence,
     reason,
-    xGGap
+    xGGap,
+    betOdds
   };
 }

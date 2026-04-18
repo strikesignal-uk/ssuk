@@ -1,6 +1,15 @@
 node_modules/
 .env
-settings.json
+
+# Ignore root-level data copies (not the seed dir)
+/backend/settings.json
+/backend/users.json
+
+# Runtime data directory (ephemeral, may be overwritten)
+/backend/data/
+
+# Never ignore seed data — this is the backup that survives deploys
+!/backend/seed/
 
 # Local Netlify folder
 .netlify

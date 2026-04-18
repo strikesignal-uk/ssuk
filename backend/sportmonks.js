@@ -7,7 +7,7 @@ export async function fetchLiveMatches() {
     const settings = getSettings();
     const apiKey = settings.sportmonksApiKey || process.env.SPORTMONKS_API_KEY;
     if (!apiKey) return [];
-    const url = `${BASE_URL}/livescores/inplay?include=scores;participants;statistics;league;state;periods&api_token=${apiKey}`;
+    const url = `${BASE_URL}/livescores/inplay?include=scores;participants;statistics;league;state;periods;odds&api_token=${apiKey}`;
     const res = await fetch(url);
     if (!res.ok) return [];
     const json = await res.json();
@@ -113,6 +113,28 @@ export function parseMatch(raw) {
 
     const totalGoals = homeGoals + awayGoals;
 
+    // Parse odds for Over 1.5, Over 2.5, and BTTS markets
+    const odds = {};
+    for (const odd of (raw.odds || [])) {
+      const label = (odd.label || '').toLowerCase();
+      const total = odd.total != null ? String(odd.total) : '';
+      const value = parseFloat(odd.value);
+      if (isNaN(value)) continue;
+
+      // Over 1.5 Goals
+      if (label === 'over' && total === '1.5') {
+        if (!odds.over15 || value > odds.over15) odds.over15 = value;
+      }
+      // Over 2.5 Goals
+      if (label === 'over' && total === '2.5') {
+        if (!odds.over25 || value > odds.over25) odds.over25 = value;
+      }
+      // Both Teams to Score
+      if (label === 'yes') {
+        if (!odds.btts || value > odds.btts) odds.btts = value;
+      }
+    }
+
     return {
       fixtureId: raw.id,
       home: home.name,
@@ -128,7 +150,8 @@ export function parseMatch(raw) {
       shots,
       pressure,
       xGGap: Number((xG.total - totalGoals).toFixed(2)),
-      totalGoals
+      totalGoals,
+      odds
     };
   } catch (e) {
     return null;

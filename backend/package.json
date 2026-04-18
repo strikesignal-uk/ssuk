@@ -2,11 +2,14 @@
   "type": "module",
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "bcryptjs": "^3.0.3",
     "cors": "latest",
     "dotenv": "latest",
     "express": "latest",
+    "jsonwebtoken": "^9.0.3",
     "node-cron": "latest",
-    "node-fetch": "latest"
+    "node-fetch": "latest",
+    "resend": "^6.10.0"
   },
   "scripts": {
     "start": "node server.js",

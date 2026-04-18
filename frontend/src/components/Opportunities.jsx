@@ -50,7 +50,10 @@ export default function Opportunities({ signals, liveMatches }) {
                 </div>
               </div>
               {/* Stats row */}
-              <div className="flex gap-2 px-4 py-2 bg-blue-50">
+              <div className="flex gap-2 px-4 py-2 bg-blue-50 flex-wrap">
+                {signal.betOdds && (
+                  <span className="bg-green-200 text-green-900 rounded-full px-3 py-1 text-xs font-semibold">Odds: {signal.betOdds.toFixed(2)}</span>
+                )}
                 <span className="bg-blue-200 text-blue-900 rounded-full px-3 py-1 text-xs font-semibold">xG: {signal.xG.total.toFixed(2)}</span>
                 <span className="bg-blue-200 text-blue-900 rounded-full px-3 py-1 text-xs font-semibold">Pressure: {signal.pressure}</span>
                 <span className="bg-blue-200 text-blue-900 rounded-full px-3 py-1 text-xs font-semibold">Danger Attacks: {signal.dangerAttacks}</span>
