@@ -68,13 +68,7 @@ export default function Opportunities({ signals, liveMatches }) {
                   {signal.confidence.charAt(0).toUpperCase() + signal.confidence.slice(1)}
                 </span>
               </div>
-              {signal.aiInsight && (
-                <div className="px-4 pb-3">
-                  <div className="bg-purple-50 border border-purple-200 rounded-lg px-3 py-2 text-sm text-purple-800">
-                    <span className="font-semibold">🤖 AI Insight:</span> {signal.aiInsight}
-                  </div>
-                </div>
-              )}
+
             </div>
           ))}
         </div>

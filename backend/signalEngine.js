@@ -25,7 +25,7 @@ export function generateSignal(match) {
     else if (betType === 'Both Teams to Score') betOdds = odds.btts || null;
   }
 
-  // Ignore opportunities with odds less than or equal to 1.5
+  // Only allow opportunities with odds > 1.5 (when odds data is available)
   if (betOdds !== null && betOdds <= 1.5) return null;
 
   let confidence = 'low';

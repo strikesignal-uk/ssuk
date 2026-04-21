@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import cron from 'node-cron';
-import { fetchLiveMatches, parseMatch, fetchFixtureById } from './sportmonks.js';
+import { fetchLiveMatches, parseMatch, fetchFixtureById, fetchTodayFixtures, fetchInPlayOdds } from './sportmonks.js';
 import { generateSignal } from './signalEngine.js';
 import { aiEnhanceSignal } from './gemini.js';
 import {
@@ -41,7 +41,7 @@ function authMiddleware(req, res, next) {
 }
 
 async function poll() {
-  const rawMatches = await fetchLiveMatches();
+  const [rawMatches, oddsMap] = await Promise.all([fetchLiveMatches(), fetchInPlayOdds()]);
   liveMatches = [];
   liveSignals = [];
   let signalsGenerated = 0;
@@ -49,6 +49,10 @@ async function poll() {
   for (const raw of rawMatches) {
     const match = parseMatch(raw);
     if (!match) continue;
+    // Merge in-play odds fetched from dedicated endpoint
+    if (oddsMap[match.fixtureId]) {
+      match.odds = { ...match.odds, ...oddsMap[match.fixtureId] };
+    }
     liveMatches.push(match);
     let signal = generateSignal(match);
     if (signal) {
@@ -109,6 +113,15 @@ resolveSignals();
 
 app.get('/api/matches/live', (req, res) => {
   res.json(liveMatches);
+});
+
+app.get('/api/matches/today', async (req, res) => {
+  try {
+    const fixtures = await fetchTodayFixtures();
+    res.json(fixtures);
+  } catch {
+    res.json([]);
+  }
 });
 
 app.get('/api/signals/live', (req, res) => {
@@ -265,6 +278,50 @@ app.get('/api/admin/notification-status', (req, res) => {
     notifiableUsers: users.length,
     users: users.map(u => ({ email: u.email, name: u.name }))
   });
+});
+
+// Debug endpoint: shows live poll state and API key status
+app.get('/api/debug/live', async (req, res) => {
+  const settings = getSettings();
+  const apiKey = settings.sportmonksApiKey || process.env.SPORTMONKS_API_KEY;
+  const result = {
+    apiKeyConfigured: !!apiKey,
+    apiKeySource: settings.sportmonksApiKey ? 'settings' : (process.env.SPORTMONKS_API_KEY ? 'env' : 'none'),
+    liveMatchesInMemory: liveMatches.length,
+    liveSignalsInMemory: liveSignals.length,
+  };
+  if (apiKey) {
+    try {
+      const url = `https://api.sportmonks.com/v3/football/livescores/inplay?include=scores;participants;statistics;league;state&api_token=${apiKey}`;
+      const r = await fetch(url);
+      const json = await r.json();
+      result.apiStatus = r.status;
+      result.apiMatchCount = Array.isArray(json.data) ? json.data.length : 0;
+      result.apiMessage = json.message || null;
+      result.apiSubscription = json.subscription || null;
+      // Also test the odds endpoint
+      const oddsRes = await fetch(`https://api.sportmonks.com/v3/football/odds/inplay?api_token=${apiKey}&per_page=5`);
+      const oddsJson = await oddsRes.json();
+      result.oddsApiStatus = oddsRes.status;
+      result.oddsApiCount = Array.isArray(oddsJson.data) ? oddsJson.data.length : 0;
+      result.oddsApiMessage = oddsJson.message || null;
+      if (Array.isArray(json.data) && json.data.length > 0) {
+        const first = json.data[0];
+        result.sampleMatch = {
+          id: first.id,
+          state_id: first.state_id,
+          starting_at_timestamp: first.starting_at_timestamp,
+          hasParticipants: Array.isArray(first.participants) && first.participants.length > 0,
+          hasStatistics: Array.isArray(first.statistics) && first.statistics.length > 0,
+          hasOdds: Array.isArray(first.odds) && first.odds.length > 0,
+          hasScores: Array.isArray(first.scores) && first.scores.length > 0,
+        };
+      }
+    } catch (e) {
+      result.apiError = e.message;
+    }
+  }
+  res.json(result);
 });
 
 app.listen(PORT, () => {

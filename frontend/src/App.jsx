@@ -6,6 +6,7 @@ import Results from './components/Results.jsx';
 import Admin from './components/Admin.jsx';
 import Login from './components/Login.jsx';
 import Signup from './components/Signup.jsx';
+import TodayMatches from './components/TodayMatches.jsx';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -58,6 +59,9 @@ function MainApp({ user, onLogout }) {
       <main className="max-w-4xl mx-auto px-2 py-6">
         {tab === 'opportunities' && (
           <Opportunities signals={signals} liveMatches={liveMatches} />
+        )}
+        {tab === 'matches' && (
+          <TodayMatches />
         )}
         {tab === 'results' && (
           <Results results={results} stats={stats} period={period} onPeriodChange={setPeriod} />

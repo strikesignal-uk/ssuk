@@ -12,7 +12,7 @@ function getModel() {
     genAI = new GoogleGenerativeAI(apiKey);
     currentKey = apiKey;
   }
-  return genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  return genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 }
 
 export async function aiEnhanceSignal(match, baseSignal) {

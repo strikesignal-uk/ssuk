@@ -2,6 +2,7 @@ import React from 'react';
 
 const tabs = [
   { key: 'opportunities', label: 'Opportunities' },
+  { key: 'matches', label: 'Matches' },
   { key: 'results', label: 'Results' }
 ];
 
