@@ -4,8 +4,8 @@ import { getSettings } from './settings.js';
 let genAI = null;
 let currentKey = '';
 
-function getModel() {
-  const settings = getSettings();
+async function getModel() {
+  const settings = await getSettings();
   const apiKey = settings.geminiApiKey || process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
   if (apiKey !== currentKey) {
@@ -16,7 +16,7 @@ function getModel() {
 }
 
 export async function aiEnhanceSignal(match, baseSignal) {
-  const model = getModel();
+  const model = await getModel();
   if (!model) return baseSignal;
 
   const prompt = `You are a football (soccer) live betting analyst AI. Analyze this live match data and provide a prediction.

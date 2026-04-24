@@ -1,8 +1,8 @@
 import { Resend } from 'resend';
 import { getSettings } from './settings.js';
 
-function getResendClient() {
-  const settings = getSettings();
+async function getResendClient() {
+  const settings = await getSettings();
   const apiKey = settings.resendApiKey || process.env.RESEND_API_KEY;
   if (!apiKey) return null;
   return { client: new Resend(apiKey), from: settings.emailFrom || process.env.EMAIL_FROM || 'StrikeSignal Alerts <alerts@izentsport.xyz>' };
@@ -62,7 +62,7 @@ function confidenceBadge(confidence) {
 
 /* ─────────── Welcome email ─────────── */
 export async function sendWelcomeEmail(email, name) {
-  const r = getResendClient();
+  const r = await getResendClient();
   if (!r) return;
 
   const content = `
@@ -118,7 +118,7 @@ export async function sendWelcomeEmail(email, name) {
 
 /* ─────────── Test email ─────────── */
 export async function sendTestEmail(toEmail) {
-  const r = getResendClient();
+  const r = await getResendClient();
   if (!r) return { error: 'Resend API key not configured' };
 
   const content = `
@@ -147,7 +147,7 @@ export async function sendTestEmail(toEmail) {
 
 /* ─────────── Signal notification ─────────── */
 export async function sendSignalNotification(users, signal) {
-  const r = getResendClient();
+  const r = await getResendClient();
   if (!r) {
     console.error('Signal notification skipped: Resend API key not configured (set in admin settings or RESEND_API_KEY env var)');
     return;
@@ -297,3 +297,78 @@ export async function sendSignalNotification(users, signal) {
     }
   }
 }
+
+/* ─────────── Password Reset email ─────────── */
+export async function sendPasswordResetEmail(email, name, resetToken) {
+  const r = await getResendClient();
+  if (!r) return { error: 'Email service not configured' };
+
+  const resetUrl = `${process.env.FRONTEND_URL || 'https://strikesignal.netlify.app'}/reset-password?token=${resetToken}`;
+
+  const content = `
+  <div style="padding:32px;">
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="width:72px;height:72px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:50%;margin:0 auto;text-align:center;line-height:72px;font-size:36px;box-shadow:0 8px 32px rgba(245,158,11,.3);">🔑</div>
+    </div>
+    <h1 style="color:#f1f5f9;font-size:22px;text-align:center;margin:0 0 8px;">Password Reset Request</h1>
+    <p style="color:#94a3b8;text-align:center;font-size:14px;margin:0 0 28px;">Hi ${name}, we received a request to reset your StrikeSignal password.</p>
+
+    <div style="background:#1e293b;border-radius:12px;padding:20px;margin-bottom:24px;border-left:4px solid #f59e0b;">
+      <p style="color:#fcd34d;font-size:12px;font-weight:600;margin:0 0 6px;letter-spacing:.5px;">⏰ LINK EXPIRES IN 1 HOUR</p>
+      <p style="color:#94a3b8;font-size:13px;margin:0;">Click the button below to choose a new password. If you didn't request this, you can safely ignore this email.</p>
+    </div>
+
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${resetUrl}" style="display:inline-block;background:linear-gradient(135deg,#f59e0b,#d97706);color:#0f172a;text-decoration:none;padding:14px 40px;border-radius:10px;font-weight:800;font-size:15px;box-shadow:0 4px 16px rgba(245,158,11,.4);">Reset My Password →</a>
+    </div>
+
+    <div style="background:#0f172a;border-radius:12px;padding:16px;border:1px solid #1e293b;">
+      <p style="color:#475569;font-size:11px;margin:0 0 6px;">Or copy this link into your browser:</p>
+      <p style="color:#60a5fa;font-size:11px;word-break:break-all;margin:0;font-family:monospace;">${resetUrl}</p>
+    </div>
+
+    <p style="color:#475569;font-size:11px;text-align:center;margin-top:20px;">This link expires in 1 hour for your security. After resetting, you'll be able to sign in with your new password.</p>
+  </div>`;
+
+  try {
+    const { data, error } = await r.client.emails.send({
+      from: r.from,
+      to: email,
+      subject: '🔑 StrikeSignal — Reset your password',
+      html: emailLayout(content),
+    });
+    if (error) return { error: error.message || JSON.stringify(error) };
+    console.log(`Password reset email sent to ${email}, id: ${data?.id}`);
+    return { success: true };
+  } catch (err) {
+    console.error(`Password reset email failed for ${email}:`, err.message);
+    return { error: err.message };
+  }
+}
+
+/* ─────────── Broadcast email ─────────── */
+export async function sendBroadcastEmail(email, subject, htmlBody) {
+  const r = await getResendClient();
+  if (!r) return { error: 'Email service not configured' };
+
+  const content = `
+  <div style="padding:32px;">
+    <h1 style="color:#f1f5f9;font-size:22px;margin:0 0 16px;">${subject}</h1>
+    <div style="color:#94a3b8;font-size:14px;line-height:1.6;white-space:pre-wrap;">${htmlBody}</div>
+  </div>`;
+
+  try {
+    const { data, error } = await r.client.emails.send({
+      from: r.from,
+      to: email,
+      subject: subject,
+      html: emailLayout(content),
+    });
+    if (error) return { error: error.message || JSON.stringify(error) };
+    return { success: true };
+  } catch (err) {
+    console.error(`Broadcast email failed for ${email}:`, err.message);
+    return { error: err.message };
+  }
+}
+

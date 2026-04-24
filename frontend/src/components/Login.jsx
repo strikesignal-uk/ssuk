@@ -9,6 +9,13 @@ export default function Login({ onAuth }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Forgot-password inline state
+  const [mode, setMode] = useState('login'); // 'login' | 'forgot'
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
+  const [forgotError, setForgotError] = useState('');
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
@@ -29,52 +36,198 @@ export default function Login({ onAuth }) {
     }
   }
 
+  async function handleForgot(e) {
+    e.preventDefault();
+    setForgotError('');
+    setForgotLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send reset email');
+      setForgotSent(true);
+    } catch (err) {
+      setForgotError(err.message);
+    } finally {
+      setForgotLoading(false);
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-600 flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <span className="text-5xl">⚡</span>
-          <h1 className="text-3xl font-bold text-white mt-2">StrikeSignal</h1>
-          <p className="text-blue-200 mt-1">Live Goal Intelligence</p>
+    <div className="min-h-screen bg-slate-950 flex">
+      {/* Left panel — branding */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-900 via-blue-950 to-violet-950 flex-col justify-between p-12 relative overflow-hidden">
+        {/* Background orbs */}
+        <div className="absolute top-20 left-20 w-72 h-72 bg-blue-600/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-20 right-10 w-64 h-64 bg-violet-600/20 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10">
+          <div className="flex justify-center mb-8">
+            <img src="/logo.png" alt="StrikeSignal" className="h-12 w-auto" />
+          </div>
+          <h1 className="text-4xl font-extrabold text-white leading-tight mb-4">
+            AI-powered<br />
+            <span className="bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent">live betting signals</span>
+          </h1>
+          <p className="text-slate-400 text-lg">Real-time xG analysis and AI predictions for smarter football betting.</p>
         </div>
-        <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-2xl p-8 space-y-5">
-          <h2 className="text-xl font-bold text-gray-900 text-center">Sign In</h2>
-          {error && <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg">{error}</div>}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-              placeholder="you@example.com"
-            />
+
+        <div className="relative z-10 space-y-4">
+          {[
+            { icon: '⚡', label: 'Live Signal Detection', desc: 'Instant alerts during matches' },
+            { icon: '🤖', label: 'AI-Enhanced Predictions', desc: 'Powered by Gemini AI' },
+            { icon: '📊', label: 'Performance Tracking', desc: 'Track your win rate over time' },
+          ].map(f => (
+            <div key={f.label} className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-slate-800/80 flex items-center justify-center text-base border border-slate-700">{f.icon}</div>
+              <div>
+                <p className="text-slate-200 text-sm font-semibold">{f.label}</p>
+                <p className="text-slate-500 text-xs">{f.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Right panel — form */}
+      <div className="flex-1 flex items-center justify-center px-6 py-12">
+        <div className="w-full max-w-sm">
+          {/* Mobile logo */}
+          <div className="flex lg:hidden items-center gap-2 justify-center mb-8">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-lg">⚡</div>
+            <span className="font-extrabold text-white text-xl">StrikeSignal</span>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              minLength={6}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-              placeholder="••••••••"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
-          >
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-          <p className="text-center text-sm text-gray-500">
-            Don't have an account?{' '}
-            <Link to="/signup" className="text-blue-600 font-semibold hover:underline">Sign Up</Link>
-          </p>
-        </form>
+
+          {/* ── LOGIN FORM ── */}
+          {mode === 'login' && (
+            <>
+              <h2 className="text-2xl font-bold text-white mb-1">Welcome back</h2>
+              <p className="text-slate-500 text-sm mb-8">Sign in to your account</p>
+
+              {error && (
+                <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 text-red-400 text-sm p-3 rounded-xl mb-5">
+                  <span>⚠</span> {error}
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-1.5">Email</label>
+                  <input
+                    type="email"
+                    id="login-email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    required
+                    className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="you@example.com"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-sm font-medium text-slate-400">Password</label>
+                    <button
+                      type="button"
+                      onClick={() => { setMode('forgot'); setForgotEmail(email); setForgotSent(false); setForgotError(''); }}
+                      className="text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                  <input
+                    type="password"
+                    id="login-password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="••••••••"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  id="login-submit"
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 text-white py-3 rounded-xl font-semibold text-sm shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                >
+                  {loading ? 'Signing in…' : 'Sign In →'}
+                </button>
+              </form>
+
+              <p className="text-center text-sm text-slate-600 mt-6">
+                No account?{' '}
+                <Link to="/signup" className="text-blue-400 font-semibold hover:text-blue-300">Create one free</Link>
+              </p>
+            </>
+          )}
+
+          {/* ── FORGOT PASSWORD FORM ── */}
+          {mode === 'forgot' && (
+            <>
+              <button
+                onClick={() => setMode('login')}
+                className="flex items-center gap-1.5 text-slate-500 hover:text-slate-300 text-sm mb-6 transition-colors"
+              >
+                ← Back to Sign In
+              </button>
+
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-2xl mb-5">🔑</div>
+              <h2 className="text-2xl font-bold text-white mb-1">Forgot password?</h2>
+              <p className="text-slate-500 text-sm mb-8">Enter your email and we'll send you a reset link.</p>
+
+              {forgotSent ? (
+                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-6 text-center">
+                  <div className="text-3xl mb-3">📬</div>
+                  <h3 className="text-emerald-400 font-bold mb-1">Check your inbox</h3>
+                  <p className="text-slate-400 text-sm">
+                    If <span className="text-white font-medium">{forgotEmail}</span> is registered, a reset link has been sent. It expires in 1 hour.
+                  </p>
+                  <button
+                    onClick={() => setMode('login')}
+                    className="mt-5 w-full bg-slate-800 hover:bg-slate-700 text-slate-300 py-2.5 rounded-xl text-sm font-semibold border border-slate-700 transition-colors"
+                  >
+                    Back to Sign In
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {forgotError && (
+                    <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 text-red-400 text-sm p-3 rounded-xl mb-5">
+                      <span>⚠</span> {forgotError}
+                    </div>
+                  )}
+                  <form onSubmit={handleForgot} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-400 mb-1.5">Email address</label>
+                      <input
+                        type="email"
+                        id="forgot-email"
+                        value={forgotEmail}
+                        onChange={e => setForgotEmail(e.target.value)}
+                        required
+                        autoFocus
+                        className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                        placeholder="you@example.com"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      id="forgot-submit"
+                      disabled={forgotLoading}
+                      className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-900 py-3 rounded-xl font-bold text-sm shadow-lg shadow-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {forgotLoading ? 'Sending…' : 'Send Reset Link →'}
+                    </button>
+                  </form>
+                </>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

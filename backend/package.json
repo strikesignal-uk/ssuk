@@ -9,6 +9,7 @@
     "jsonwebtoken": "^9.0.3",
     "node-cron": "latest",
     "node-fetch": "latest",
+    "pg": "^8.20.0",
     "resend": "^6.10.0"
   },
   "scripts": {

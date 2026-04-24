@@ -5,7 +5,7 @@ const BASE_URL = 'https://api.sportmonks.com/v3/football';
 // Fetch in-play odds from dedicated endpoint and return a map: fixtureId → { over15, over25, btts }
 export async function fetchInPlayOdds() {
   try {
-    const settings = getSettings();
+    const settings = await getSettings();
     const apiKey = settings.sportmonksApiKey || process.env.SPORTMONKS_API_KEY;
     if (!apiKey) return {};
     const url = `${BASE_URL}/odds/inplay?api_token=${apiKey}&per_page=200`;
@@ -46,7 +46,7 @@ export async function fetchInPlayOdds() {
 
 export async function fetchLiveMatches() {
   try {
-    const settings = getSettings();
+    const settings = await getSettings();
     const apiKey = settings.sportmonksApiKey || process.env.SPORTMONKS_API_KEY;
     if (!apiKey) {
       console.warn(`[${new Date().toISOString()}] fetchLiveMatches: No API key configured. Set sportmonksApiKey in Admin → Settings.`);
@@ -76,7 +76,7 @@ export async function fetchLiveMatches() {
 
 export async function fetchFixtureById(fixtureId) {
   try {
-    const settings = getSettings();
+    const settings = await getSettings();
     const apiKey = settings.sportmonksApiKey || process.env.SPORTMONKS_API_KEY;
     if (!apiKey) return null;
     const url = `${BASE_URL}/fixtures/${fixtureId}?include=scores;participants;state&api_token=${apiKey}`;
@@ -107,7 +107,7 @@ export async function fetchFixtureById(fixtureId) {
 
 export async function fetchTodayFixtures() {
   try {
-    const settings = getSettings();
+    const settings = await getSettings();
     const apiKey = settings.sportmonksApiKey || process.env.SPORTMONKS_API_KEY;
     if (!apiKey) return [];
     const today = new Date().toISOString().slice(0, 10);

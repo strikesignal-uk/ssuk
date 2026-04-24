@@ -1,53 +1,43 @@
-import React from 'react';
+import React, { useState } from 'react';
 
-const tabs = [
-  { key: 'opportunities', label: 'Opportunities' },
-  { key: 'matches', label: 'Matches' },
-  { key: 'results', label: 'Results' }
-];
-
-export default function Header({ tab, setTab, liveCount, user, onLogout }) {
+export default function TopBar({ page, user, onLogout, liveCount, sidebarCollapsed, setSidebarCollapsed }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const labels = { dashboard:'Dashboard', live:'Live Signals', tradelog:'Trade Log', schedule:'Schedule', results:'Results', sportybet: 'Sportybet', settings:'Settings', profile:'Profile' };
   return (
-    <header className="w-full bg-gradient-to-r from-blue-900 to-blue-500 pb-2">
-      <div className="flex justify-between items-center px-4 pt-4">
-        <div className="flex items-center gap-2">
-          <span className="text-3xl">⚡</span>
-          <span className="font-bold text-white text-2xl tracking-tight">StrikeSignal</span>
-          <span className="ml-2 text-blue-100 text-sm font-medium">Live Goal Intelligence</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-            </span>
-            <span className="text-white font-semibold text-sm">LIVE</span>
-            <span className="ml-1 text-white text-lg font-mono">{liveCount}</span>
-          </div>
-          {user && (
-            <div className="flex items-center gap-2">
-              <span className="text-blue-100 text-sm">{user.name}</span>
-              <button onClick={onLogout} className="text-blue-200 hover:text-white text-sm underline">Logout</button>
-            </div>
-          )}
-        </div>
+    <header className="h-14 flex items-center justify-between px-4 bg-[#0a0f1e]/90 backdrop-blur border-b border-white/5 sticky top-0 z-10">
+      <div className="flex items-center gap-3">
+        <button onClick={() => setSidebarCollapsed(c => !c)} className="hidden md:flex w-8 h-8 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-all">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <span className="text-white font-bold text-sm">{labels[page] || 'StrikeSignal'}</span>
       </div>
-      <nav className="flex gap-2 mt-6 px-4">
-        {tabs.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={
-              (tab === t.key
-                ? 'bg-white text-blue-900 rounded-t-lg shadow font-bold'
-                : 'bg-transparent text-blue-100 hover:text-white') +
-              ' px-4 py-2 transition-colors duration-150 text-base outline-none'
-            }
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
+      <div className="flex items-center gap-2">
+        {liveCount > 0 && (
+          <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-2.5 py-1">
+            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+            <span className="text-emerald-400 text-xs font-bold">{liveCount} LIVE</span>
+          </div>
+        )}
+        {user && (
+          <div className="relative">
+            <button onClick={() => setMenuOpen(v => !v)}
+              className="flex items-center gap-2 bg-white/5 hover:bg-white/10 rounded-xl px-3 py-1.5 border border-white/5 transition-all">
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-[11px] font-bold">
+                {user.name?.charAt(0).toUpperCase()}
+              </div>
+              <span className="hidden sm:block text-slate-300 text-xs font-medium">{user.name}</span>
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 mt-2 w-40 bg-[#0d1527] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50">
+                <button onClick={() => { setMenuOpen(false); onLogout(); }}
+                  className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-white/5 flex items-center gap-2">
+                  🚪 Sign Out
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </header>
   );
 }

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { isUsingDB, query } from './db.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Seed dir is always bundled with the app (committed in git)
@@ -61,43 +62,63 @@ export function writeSignals(arr) {
   writeFileSync(SIGNALS_PATH, JSON.stringify(arr, null, 2), 'utf-8');
 }
 
-export function saveSignal(match, signal) {
+export async function saveSignal(match, signal) {
+  const now = Date.now();
+  const thirtyMinsAgo = new Date(now - 30 * 60 * 1000).toISOString();
+
+  if (isUsingDB()) {
+    const { rows } = await query(
+      `SELECT id FROM signals WHERE fixture_id = $1 AND created_at > $2 LIMIT 1`,
+      [match.fixtureId, thirtyMinsAgo]
+    );
+    if (rows.length > 0) return false;
+    await query(
+      `INSERT INTO signals
+        (id, fixture_id, home, away, league, minute, score, xg, danger_attacks, shots,
+         pressure, xg_gap, total_goals, bet_type, expected_score, confidence, reason,
+         bet_odds, ai_insight, ai_enhanced, result, created_at, sportybet_share_code, sportybet_bet_link, sportybet_market, bet9ja_code)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)`,
+      [
+        now.toString(), match.fixtureId, match.home, match.away, match.league,
+        match.minute, match.score, JSON.stringify(match.xG), JSON.stringify(match.dangerAttacks),
+        JSON.stringify(match.shots), match.pressure, match.xGGap, match.totalGoals,
+        signal.betType, signal.expectedScore, signal.confidence, signal.reason,
+        signal.betOdds || null, signal.aiInsight || '', signal.aiEnhanced || false,
+        'pending', new Date(now).toISOString(),
+        signal.sportybet?.shareCode || null, signal.sportybet?.betLink || null, signal.sportybet?.market || null,
+        signal.bookingCodes?.bet9ja || null
+      ]
+    );
+    return true;
+  }
+
   ensureSignalsFile();
   const arr = readSignals();
-  const now = Date.now();
-  const thirtyMinsAgo = now - 30 * 60 * 1000;
-  const exists = arr.some(s => s.fixtureId === match.fixtureId && new Date(s.created_at).getTime() > thirtyMinsAgo);
+  const exists = arr.some(s => s.fixtureId === match.fixtureId && new Date(s.created_at).getTime() > now - 30 * 60 * 1000);
   if (exists) return false;
   const obj = {
-    id: now.toString(),
-    fixtureId: match.fixtureId,
-    home: match.home,
-    away: match.away,
-    league: match.league,
-    minute: match.minute,
-    score: match.score,
-    xG: match.xG,
-    dangerAttacks: match.dangerAttacks,
-    shots: match.shots,
-    pressure: match.pressure,
-    xGGap: match.xGGap,
-    totalGoals: match.totalGoals,
-    betType: signal.betType,
-    expectedScore: signal.expectedScore,
-    confidence: signal.confidence,
-    reason: signal.reason,
-    betOdds: signal.betOdds || null,
-    aiInsight: signal.aiInsight || '',
-    aiEnhanced: signal.aiEnhanced || false,
-    created_at: new Date(now).toISOString(),
-    result: 'pending'
+    id: now.toString(), fixtureId: match.fixtureId, home: match.home, away: match.away,
+    league: match.league, minute: match.minute, score: match.score, xG: match.xG,
+    dangerAttacks: match.dangerAttacks, shots: match.shots, pressure: match.pressure,
+    xGGap: match.xGGap, totalGoals: match.totalGoals, betType: signal.betType,
+    expectedScore: signal.expectedScore, confidence: signal.confidence, reason: signal.reason,
+    betOdds: signal.betOdds || null, aiInsight: signal.aiInsight || '',
+    aiEnhanced: signal.aiEnhanced || false, created_at: new Date(now).toISOString(), result: 'pending',
+    sportybet_share_code: signal.sportybet?.shareCode || null,
+    sportybet_bet_link: signal.sportybet?.betLink || null,
+    sportybet_market: signal.sportybet?.market || null,
+    bet9ja_code: signal.bookingCodes?.bet9ja || null
   };
   arr.push(obj);
   writeSignals(arr);
   return true;
 }
 
-export function updateResult(id, result) {
+export async function updateResult(id, result) {
+  if (isUsingDB()) {
+    const { rowCount } = await query('UPDATE signals SET result = $1 WHERE id = $2', [result, id]);
+    return rowCount > 0;
+  }
   const arr = readSignals();
   const idx = arr.findIndex(s => s.id === id);
   if (idx === -1) return false;
@@ -106,31 +127,84 @@ export function updateResult(id, result) {
   return true;
 }
 
-export function getLast20() {
+function dbRowToSignal(row) {
+  return {
+    id: row.id, fixtureId: row.fixture_id, home: row.home, away: row.away, league: row.league,
+    minute: row.minute, score: row.score, xG: row.xg, dangerAttacks: row.danger_attacks,
+    shots: row.shots, pressure: row.pressure, xGGap: row.xg_gap, totalGoals: row.total_goals,
+    betType: row.bet_type, expectedScore: row.expected_score, confidence: row.confidence,
+    reason: row.reason, betOdds: row.bet_odds, aiInsight: row.ai_insight,
+    aiEnhanced: row.ai_enhanced, result: row.result, created_at: row.created_at,
+    sportybet_share_code: row.sportybet_share_code, sportybet_bet_link: row.sportybet_bet_link,
+    sportybet_market: row.sportybet_market,
+    bet9ja_code: row.bet9ja_code || null
+  };
+}
+
+export async function getLast20() {
+  if (isUsingDB()) {
+    const { rows } = await query('SELECT * FROM signals ORDER BY created_at DESC LIMIT 20');
+    return rows.map(dbRowToSignal);
+  }
   const arr = readSignals();
   return arr.slice(-20).reverse();
 }
 
-export function getLast30Days() {
+export async function getLast30Days() {
+  if (isUsingDB()) {
+    const { rows } = await query(
+      `SELECT * FROM signals WHERE created_at > NOW() - INTERVAL '30 days' ORDER BY created_at DESC`
+    );
+    return rows.map(dbRowToSignal);
+  }
   const arr = readSignals();
   const now = Date.now();
   const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
   return arr.filter(s => new Date(s.created_at).getTime() > thirtyDaysAgo).reverse();
 }
 
-export function getAllSignals() {
+export async function getAllSignals() {
+  if (isUsingDB()) {
+    const { rows } = await query('SELECT * FROM signals ORDER BY created_at DESC');
+    return rows.map(dbRowToSignal);
+  }
   return readSignals().reverse();
 }
 
-export function importSignals(arr) {
+export async function importSignals(arr) {
   if (!Array.isArray(arr)) return { added: 0 };
+  if (isUsingDB()) {
+    let added = 0;
+    for (const s of arr) {
+      if (!s.id) continue;
+      try {
+        await query(
+          `INSERT INTO signals
+            (id, fixture_id, home, away, league, minute, score, xg, danger_attacks, shots,
+             pressure, xg_gap, total_goals, bet_type, expected_score, confidence, reason,
+             bet_odds, ai_insight, ai_enhanced, result, created_at, sportybet_share_code, sportybet_bet_link, sportybet_market, bet9ja_code)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
+           ON CONFLICT (id) DO NOTHING`,
+          [
+            s.id, s.fixtureId, s.home, s.away, s.league, s.minute, s.score,
+            JSON.stringify(s.xG), JSON.stringify(s.dangerAttacks), JSON.stringify(s.shots),
+            s.pressure, s.xGGap, s.totalGoals, s.betType, s.expectedScore, s.confidence,
+            s.reason, s.betOdds || null, s.aiInsight || '', s.aiEnhanced || false,
+            s.result || 'pending', s.created_at || new Date().toISOString(),
+            s.sportybet_share_code || null, s.sportybet_bet_link || null, s.sportybet_market || null,
+            s.bet9ja_code || null
+          ]
+        );
+        added++;
+      } catch { /* skip duplicates */ }
+    }
+    return { added, total: added };
+  }
   const current = readSignals();
   const existingIds = new Set(current.map(s => s.id));
   const newOnes = arr.filter(s => s.id && !existingIds.has(s.id));
   if (newOnes.length === 0) return { added: 0 };
-  const merged = [...current, ...newOnes].sort(
-    (a, b) => new Date(a.created_at) - new Date(b.created_at)
-  );
+  const merged = [...current, ...newOnes].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
   writeSignals(merged);
   return { added: newOnes.length, total: merged.length };
 }
@@ -142,3 +216,18 @@ export function getDataDir() {
 export function isUsingVolume() {
   return !!process.env.RAILWAY_VOLUME_MOUNT_PATH || (!!process.env.DATA_DIR && process.env.DATA_DIR !== join(__dirname, 'data'));
 }
+
+// ── SportyBet Integration Storage ───────────────────────────────────────────
+
+const SPORTYBET_STORE = join(DATA_DIR, 'sportybet.json');
+const SPORTYBET_LOG = join(DATA_DIR, 'sportybet-log.json');
+
+export function readSportybet() {
+  try { return JSON.parse(readFileSync(SPORTYBET_STORE, 'utf-8')); } catch { return { connected: false, phone: '', password: '', bots: [] }; }
+}
+export function writeSportybet(data) { writeFileSync(SPORTYBET_STORE, JSON.stringify(data, null, 2), 'utf-8'); }
+
+export function readSportybetLog() {
+  try { return JSON.parse(readFileSync(SPORTYBET_LOG, 'utf-8')); } catch { return []; }
+}
+export function writeSportybetLog(data) { writeFileSync(SPORTYBET_LOG, JSON.stringify(data, null, 2), 'utf-8'); }

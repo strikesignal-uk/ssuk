@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { isUsingDB, query } from './db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SEED_DIR = join(__dirname, 'seed');
@@ -16,11 +17,15 @@ const DEFAULTS = {
   geminiApiKey: '',
   resendApiKey: '',
   emailFrom: 'StrikeSignal Alerts <alerts@izentsport.xyz>',
+  telegramBotToken: '',
+  telegramChatId: '',
+  filterNoBookingCodes: 'false',  // 'true' = only emit signals that have SportyBet/Bet9ja codes
 };
+
+// ─── JSON fallback helpers ────────────────────────────────────────────────────
 
 function ensureFile() {
   if (!existsSync(SETTINGS_PATH)) {
-    // Try restoring from seed, then fall back to defaults
     if (existsSync(SEED_SETTINGS_PATH)) {
       try {
         const seed = JSON.parse(readFileSync(SEED_SETTINGS_PATH, 'utf-8'));
@@ -33,13 +38,30 @@ function ensureFile() {
   }
 }
 
-export function getSettings() {
+// ─── Public API ───────────────────────────────────────────────────────────────
+
+export async function getSettings() {
+  if (isUsingDB()) {
+    const { rows } = await query('SELECT key, value FROM settings');
+    const result = { ...DEFAULTS };
+    for (const row of rows) result[row.key] = row.value;
+    return result;
+  }
   ensureFile();
   return JSON.parse(readFileSync(SETTINGS_PATH, 'utf-8'));
 }
 
-export function updateSettings(partial) {
-  const current = getSettings();
+export async function updateSettings(partial) {
+  if (isUsingDB()) {
+    for (const [key, value] of Object.entries(partial)) {
+      await query(
+        'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2',
+        [key, value]
+      );
+    }
+    return getSettings();
+  }
+  const current = await getSettings();
   const updated = { ...current, ...partial };
   writeFileSync(SETTINGS_PATH, JSON.stringify(updated, null, 2), 'utf-8');
   return updated;
