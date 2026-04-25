@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import cron from 'node-cron';
 import { fetchLiveMatches, parseMatch, fetchFixtureById, fetchTodayFixtures, fetchInPlayOdds } from './sportmonks.js';
 import { generateSignal } from './signalEngine.js';
+import { convertToSportybet } from './izentbet.js';
 import { aiEnhanceSignal } from './gemini.js';
 import {
   readSignals,
@@ -22,7 +23,9 @@ import {
   writeSportybetLog
 } from './storage.js';
 import { getSettings, updateSettings } from './settings.js';
+import { loginSportybet, fetchBalance } from "./sportybetScraper.js";
 import { createUser, loginUser, verifyToken, getAllUsers, updateNotifications, getNotifiableUsers, getUserById, updateProfile, createPasswordResetToken, resetPassword } from './users.js';
+import fs from 'fs';
 import { sendSignalNotification, sendWelcomeEmail, sendTestEmail, sendPasswordResetEmail, sendBroadcastEmail } from './email.js';
 import { sendTelegramBroadcast } from './telegram.js';
 import { askAdminAssistant } from './chat.js';
@@ -135,7 +138,12 @@ app.get('/api/matches/today', async (req, res) => {
 });
 
 app.get('/api/signals/live', (req, res) => {
-  res.json(liveSignals);
+  // Ensure every signal has a sportybet field (null if missing)
+  const enriched = liveSignals.map(s => ({
+    ...s,
+    sportybet: s.sportybet || null,
+  }));
+  res.json(enriched);
 });
 
 app.get('/api/signals', async (req, res) => {
@@ -199,6 +207,56 @@ app.get('/api/signals/:id/betlink', async (req, res) => {
     market: signal.sportybet_market,
     bet9jaCode: signal.bet9ja_code || null
   });
+});
+
+// Manually trigger Sportybet code conversion for a specific signal
+app.post('/api/signals/:id/convert', async (req, res) => {
+  try {
+    const allSignals = await getAllSignals();
+    const signal = allSignals.find(s => s.id === req.params.id);
+    if (!signal) return res.status(404).json({ error: 'Signal not found' });
+
+    const home = signal.home;
+    const away = signal.away;
+    const betType = signal.betType || 'Back Over 1.5 Goals';
+
+    console.log(`🔄 Manual convert request: ${home} vs ${away}`);
+    const conversion = await convertToSportybet(home, away, betType);
+
+    if (conversion.success) {
+      signal.sportybet = {
+        shareCode: conversion.shareCode,
+        betLink: conversion.betLink,
+        market: conversion.market,
+        totalOdds: conversion.totalOdds,
+        convertedAt: new Date().toISOString(),
+      };
+      signal.bookingCodes = {
+        ...(signal.bookingCodes || {}),
+        sportybet: conversion.shareCode,
+        sportybet_url: conversion.betLink,
+      };
+      // Persist the updated signal
+      const all = await getAllSignals();
+      const idx = all.findIndex(s => s.id === req.params.id);
+      if (idx >= 0) {
+        all[idx] = signal;
+        await writeSignals(all);
+      }
+      // Also update the in-memory live signals if present
+      const liveIdx = liveSignals.findIndex(s => s.id === req.params.id || s.fixtureId === signal.fixtureId);
+      if (liveIdx >= 0) {
+        liveSignals[liveIdx].sportybet = signal.sportybet;
+        liveSignals[liveIdx].bookingCodes = signal.bookingCodes;
+      }
+      return res.json({ success: true, signal });
+    }
+
+    res.json({ success: false, error: conversion.error, signal });
+  } catch (err) {
+    console.error('[Convert] Error:', err.message);
+    res.status(500).json({ error: 'Conversion failed: ' + err.message });
+  }
 });
 
 app.get('/health', async (req, res) => {
@@ -545,31 +603,127 @@ app.delete('/api/trades/:id', authMiddleware, async (req, res) => {
 // ── SportyBet Integration ───────────────────────────────────────────────────
 // readSportybet, writeSportybet, readSportybetLog, writeSportybetLog are imported from storage.js
 
+function maskPhone(phone) {
+  if (!phone || phone.length < 11) return phone;
+  const first4 = phone.slice(0, 4);
+  const last2 = phone.slice(-2);
+  return first4 + "XXXXX" + last2;
+}
+
 app.get('/api/sportybet/status', authMiddleware, (req, res) => {
   const sb = readSportybet();
-  const phoneMasked = sb.phone ? sb.phone.slice(0, 3) + 'XXXXXXX' + sb.phone.slice(-1) : '';
-  res.json({ connected: sb.connected, phone: phoneMasked, sessionActive: sb.connected });
+  if (!sb.connected) return res.json({ connected: false, balance: 0 });
+
+  res.json({
+    connected: sb.connected,
+    phone: maskPhone(sb.phone),
+    sessionKey: sb.sessionKey ? sb.sessionKey.slice(0, 8) + "••••" : null,
+    balance: sb.balance || 0,
+    balanceFormatted: sb.balanceFormatted || "₦0.00",
+    lastBalanceSync: sb.lastBalanceSync,
+    connectedAt: sb.connectedAt
+  });
 });
 
-app.post('/api/sportybet/connect', authMiddleware, (req, res) => {
+app.post('/api/sportybet/connect', authMiddleware, async (req, res) => {
   const { phone, password } = req.body;
-  if (!phone || !password) return res.status(400).json({ error: 'Phone and password required' });
+  if (!phone || !password) return res.status(400).json({ success: false, error: 'Phone and password required' });
+  
+  if (!/^(070|080|081|090|091)\d{8}$/.test(phone)) {
+    return res.status(400).json({ success: false, error: "Please enter a valid Nigerian phone number" });
+  }
+
+  console.log("🔄 Testing Sportybet credentials...");
+  const loginTest = await loginSportybet(phone, password);
+
+  if (!loginTest.success) {
+    return res.status(401).json({ success: false, error: loginTest.error || "Could not connect to Sportybet. Please check your credentials." });
+  }
+
+  const balanceResult = await fetchBalance(phone, password);
+  const encoded = Buffer.from(phone + ":" + password).toString("base64");
+  const sessionKey = "sprt_" + Buffer.from(phone).toString("base64").slice(0, 8);
+
   const sb = readSportybet();
   sb.connected = true;
   sb.phone = phone;
-  sb.password = Buffer.from(password).toString('base64'); // Simple encoding per request
-  if (!sb.bots) sb.bots = [];
+  sb.encodedCredentials = encoded;
+  sb.sessionKey = sessionKey;
+  sb.balance = balanceResult.balance || 0;
+  sb.balanceFormatted = balanceResult.balanceFormatted || "₦0.00";
+  sb.lastBalanceSync = new Date().toISOString();
+  sb.connectedAt = new Date().toISOString();
+  
   writeSportybet(sb);
-  const phoneMasked = sb.phone.slice(0, 3) + 'XXXXXXX' + sb.phone.slice(-1);
-  res.json({ success: true, phone: phoneMasked });
+
+  res.json({
+    success: true,
+    connected: true,
+    phone: maskPhone(phone),
+    sessionKey: sessionKey,
+    balance: sb.balance,
+    balanceFormatted: sb.balanceFormatted,
+    message: "Sportybet connected successfully! ✅"
+  });
+});
+
+app.get('/api/sportybet/balance', authMiddleware, async (req, res) => {
+  const sb = readSportybet();
+  if (!sb.connected) return res.json({ balance: 0, balanceFormatted: "₦0.00" });
+
+  const lastSync = new Date(sb.lastBalanceSync || 0);
+  const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000);
+
+  if (lastSync > thirtyMinsAgo) {
+    return res.json({
+      balance: sb.balance,
+      balanceFormatted: sb.balanceFormatted,
+      lastBalanceSync: sb.lastBalanceSync,
+      cached: true
+    });
+  }
+
+  const decoded = Buffer.from(sb.encodedCredentials, "base64").toString("utf8");
+  const [phone, pwd] = decoded.split(":");
+  const result = await fetchBalance(phone, pwd);
+
+  if (result.success) {
+    sb.balance = result.balance;
+    sb.balanceFormatted = result.balanceFormatted;
+    sb.lastBalanceSync = result.fetchedAt;
+    writeSportybet(sb);
+    return res.json({
+      balance: sb.balance,
+      balanceFormatted: sb.balanceFormatted,
+      lastBalanceSync: sb.lastBalanceSync
+    });
+  }
+
+  res.json({
+    balance: sb.balance,
+    balanceFormatted: sb.balanceFormatted,
+    lastBalanceSync: sb.lastBalanceSync,
+    cached: true,
+    note: "Using cached balance — refresh failed"
+  });
 });
 
 app.post('/api/sportybet/disconnect', authMiddleware, (req, res) => {
   const sb = readSportybet();
   sb.connected = false;
-  sb.phone = '';
-  sb.password = '';
+  sb.phone = null;
+  sb.encodedCredentials = null;
+  sb.sessionKey = null;
+  sb.balance = 0;
+  sb.balanceFormatted = "₦0.00";
+  sb.lastBalanceSync = null;
+  sb.connectedAt = null;
   writeSportybet(sb);
+
+  if (fs.existsSync('./sportybet-session.json')) {
+    fs.unlinkSync('./sportybet-session.json');
+  }
+
   res.json({ success: true });
 });
 
@@ -601,18 +755,79 @@ app.patch('/api/sportybet/bots/:id/toggle', authMiddleware, (req, res) => {
   res.json(bot);
 });
 
+app.put('/api/sportybet/bots/:id', authMiddleware, (req, res) => {
+  const { id } = req.params;
+  const updatedBot = req.body;
+  const sb = readSportybet();
+  if (!sb.bots) sb.bots = [];
+  const idx = sb.bots.findIndex(b => b.id === id);
+  if (idx === -1) return res.status(404).json({ error: 'Bot not found' });
+  sb.bots[idx] = { ...sb.bots[idx], ...updatedBot, id }; // ensure ID is preserved
+  writeSportybet(sb);
+  res.json(sb.bots[idx]);
+});
+
+app.delete('/api/sportybet/bots/:id', authMiddleware, (req, res) => {
+  const { id } = req.params;
+  const sb = readSportybet();
+  if (!sb.bots) sb.bots = [];
+  const initialLength = sb.bots.length;
+  sb.bots = sb.bots.filter(b => b.id !== id);
+  if (sb.bots.length === initialLength) return res.status(404).json({ error: 'Bot not found' });
+  writeSportybet(sb);
+  res.json({ success: true });
+});
+
 app.get('/api/sportybet/execution-log', authMiddleware, (req, res) => {
   const logs = readSportybetLog();
-  res.json(logs.slice(-50).reverse());
+  const typeFilter = req.query.type;
+  let filtered = logs;
+  if (typeFilter) {
+    filtered = logs.filter(l => l.type === typeFilter);
+  }
+  const last50 = filtered.slice(0, 50);
+  const successCount = logs.filter(l => l.type === 'SUCCESS').length;
+  const errorCount = logs.filter(l => l.type === 'ERROR').length;
+  res.json({
+    logs: last50,
+    total: logs.length,
+    successCount,
+    errorCount
+  });
 });
 
 app.post('/api/sportybet/execution-log', authMiddleware, (req, res) => {
   const entry = req.body;
   const logs = readSportybetLog();
-  logs.push(entry);
-  if (logs.length > 200) logs.shift(); 
-  writeSportybetLog(logs);
+  logs.unshift(entry);
+  const trimmed = logs.slice(0, 200);
+  writeSportybetLog(trimmed);
   res.json(entry);
+});
+
+app.delete('/api/sportybet/execution-log', authMiddleware, (req, res) => {
+  writeSportybetLog([]);
+  res.json({ success: true });
+});
+
+app.get('/api/sportybet/bots/stats', authMiddleware, (req, res) => {
+  const sb = readSportybet();
+  const logs = readSportybetLog();
+  const bots = sb.bots || [];
+  const stats = {};
+
+  for (const bot of bots) {
+    const botLogs = logs.filter(l => l.botId === bot.id);
+    stats[bot.id] = {
+      totalBets: botLogs.length,
+      successBets: botLogs.filter(l => l.type === 'SUCCESS' && !l.simulation).length,
+      failedBets: botLogs.filter(l => l.type === 'ERROR').length,
+      simulatedBets: botLogs.filter(l => l.simulation === true).length,
+      totalStaked: botLogs.filter(l => l.type === 'SUCCESS').reduce((sum, l) => sum + (l.stake || 0), 0)
+    };
+  }
+
+  res.json(stats);
 });
 
 
@@ -707,6 +922,60 @@ app.post('/api/admin/login', (req, res) => {
     res.json({ success: true, token: 'admin_' + Date.now() });
   } else {
     res.status(401).json({ error: 'Invalid password' });
+  }
+});
+
+// ── AI Chat Proxy ────────────────────────────────────────────────────────────
+
+app.post('/api/ai-chat', async (req, res) => {
+  try {
+    const response = await fetch('https://backend-production-2d71.up.railway.app/functions/v1/ai-bet', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body)
+    });
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[AI Chat Proxy] Error:', error.message);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+app.post('/api/ai-chat/bet9ja-build', async (req, res) => {
+  try {
+    const response = await fetch('https://backend-production-2d71.up.railway.app/functions/v1/ai-bet/bet9ja-build', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body)
+    });
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('[AI Chat Proxy] Error:', error.message);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+cron.schedule("*/30 * * * *", async () => {
+  try {
+    const sb = readSportybet();
+    if (!sb.connected) return;
+
+    console.log("🔄 Auto-syncing Sportybet balance...");
+    const decoded = Buffer.from(sb.encodedCredentials, "base64").toString("utf8");
+    const [phone, pwd] = decoded.split(":");
+    const result = await fetchBalance(phone, pwd);
+
+    if (result.success) {
+      sb.balance = result.balance;
+      sb.balanceFormatted = result.balanceFormatted;
+      sb.lastBalanceSync = result.fetchedAt;
+      writeSportybet(sb);
+      console.log("✅ Balance synced:", result.balanceFormatted);
+    }
+  } catch (err) {
+    console.error("❌ Auto sync failed:", err.message);
   }
 });
 

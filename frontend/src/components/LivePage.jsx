@@ -1,14 +1,28 @@
 import React, { useState } from 'react';
 
+const API = import.meta.env.VITE_API_URL || 'https://strikesignal-api-production.up.railway.app';
+
 const CONF = {
   high:   { dot: 'bg-emerald-400', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', label: 'HIGH' },
   medium: { dot: 'bg-amber-400',   badge: 'bg-amber-500/10 text-amber-400 border-amber-500/20',     label: 'MED' },
   low:    { dot: 'bg-slate-400',   badge: 'bg-slate-700/40 text-slate-400 border-slate-600/20',     label: 'LOW' },
 };
 
-function SignalCard({ signal }) {
+function SignalCard({ signal, onRetryConvert }) {
   const [open, setOpen] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const c = CONF[signal.confidence] || CONF.low;
+
+  const handleRetry = async (e) => {
+    e.stopPropagation();
+    if (!signal.id || retrying) return;
+    setRetrying(true);
+    try {
+      await onRetryConvert(signal.id);
+    } catch {}
+    setRetrying(false);
+  };
+
   return (
     <div className="bg-[#0d1527] border border-white/5 hover:border-blue-500/20 rounded-2xl overflow-hidden transition-all">
       <div className="flex items-center justify-between p-4 cursor-pointer" onClick={() => setOpen(v => !v)}>
@@ -65,40 +79,52 @@ function SignalCard({ signal }) {
         </div>
       )}
 
-      {/* Booking codes */}
-      {(signal.sportybet?.betLink || signal.bookingCodes?.bet9ja) ? (
+      {/* Booking codes / Bet Now section */}
+      {(signal.sportybet && signal.sportybet.betLink) ? (
+        /* ── Has Sportybet link — show Bet Now ────────────────────────────────── */
         <div className="border-t border-white/5 bg-[#0a0f1e]/60 px-4 py-3">
           <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-2">Book This Bet</div>
           <div className="flex gap-2 flex-wrap">
-            {signal.sportybet?.betLink && (
-              <button onClick={e => { e.stopPropagation(); window.open(signal.sportybet.betLink, '_blank'); }}
-                className="flex-1 min-w-[120px] flex items-center justify-center gap-1.5 bg-[#16a34a] hover:brightness-110 text-white font-bold text-xs py-2.5 px-3 rounded-xl transition-all">
-                ⚽ SportyBet {signal.sportybet.shareCode && <span className="bg-green-800/60 px-1.5 py-0.5 rounded font-mono text-[10px]">{signal.sportybet.shareCode}</span>}
-              </button>
-            )}
+            <button
+              onClick={e => { e.stopPropagation(); window.open(signal.sportybet.betLink, '_blank'); }}
+              className="flex-1 min-w-[120px] flex items-center justify-center gap-1.5 text-white font-bold text-xs py-2.5 px-3 rounded-xl transition-all"
+              style={{ backgroundColor: '#16a34a', height: '44px', borderRadius: '8px' }}
+            >
+              ⚽ Bet Now on Sportybet
+              {signal.sportybet.shareCode && <span className="bg-green-800/60 px-1.5 py-0.5 rounded font-mono text-[10px]">{signal.sportybet.shareCode}</span>}
+            </button>
             {signal.bookingCodes?.bet9ja && (
-              <button onClick={e => { e.stopPropagation(); navigator.clipboard?.writeText(signal.bookingCodes.bet9ja).catch(()=>{}); window.open(`https://web.bet9ja.com/Sport/Coupon/${signal.bookingCodes.bet9ja}`, '_blank'); }}
-                className="flex-1 min-w-[120px] flex items-center justify-center gap-1.5 bg-[#007b5e] hover:brightness-110 text-white font-bold text-xs py-2.5 px-3 rounded-xl transition-all">
+              <button
+                onClick={e => { e.stopPropagation(); navigator.clipboard?.writeText(signal.bookingCodes.bet9ja).catch(()=>{}); window.open(`https://web.bet9ja.com/Sport/Coupon/${signal.bookingCodes.bet9ja}`, '_blank'); }}
+                className="flex-1 min-w-[120px] flex items-center justify-center gap-1.5 bg-[#007b5e] hover:brightness-110 text-white font-bold text-xs py-2.5 px-3 rounded-xl transition-all"
+              >
                 🎯 Bet9ja <span className="bg-emerald-900/60 px-1.5 py-0.5 rounded font-mono text-[10px]">{signal.bookingCodes.bet9ja}</span>
               </button>
             )}
           </div>
-          <div className="text-[10px] text-slate-700 mt-1.5 text-center">{signal.sportybet?.market} · Click to open betslip</div>
+          <div className="text-[10px] text-slate-700 mt-1.5 text-center">
+            Share code: {signal.sportybet.shareCode}
+            {signal.sportybet.totalOdds ? ` · Odds: ${signal.sportybet.totalOdds}` : ''}
+            {signal.sportybet.market ? ` · ${signal.sportybet.market}` : ''}
+          </div>
         </div>
       ) : (
+        /* ── No Sportybet link — show getting code / retry ────────────────────── */
         <div className="border-t border-white/5 bg-[#0a0f1e]/60 px-4 py-3">
-          <div className="flex flex-col gap-2">
-            <div className="text-center text-slate-500 text-xs font-bold mb-1">
-              Match not listed on SportyBet
-            </div>
-            <button 
-              onClick={e => { 
-                e.stopPropagation(); 
-                window.open(`https://www.sportybet.com/ng/sport/football/search?query=${encodeURIComponent(signal.home)}`, '_blank'); 
-              }}
-              className="w-full flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs py-2.5 px-3 rounded-xl border border-white/5 transition-all"
+          <div className="flex flex-col gap-2 items-center">
+            <button
+              disabled
+              className="w-full flex items-center justify-center gap-1.5 font-bold text-xs py-2.5 px-3 rounded-xl cursor-not-allowed"
+              style={{ backgroundColor: '#374151', color: '#9ca3af', height: '44px', borderRadius: '8px' }}
             >
-              🔍 Search Teams Manually
+              🔄 Getting Sportybet code...
+            </button>
+            <button
+              onClick={handleRetry}
+              disabled={retrying}
+              className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50"
+            >
+              {retrying ? '⏳ Retrying...' : '🔄 Retry conversion'}
             </button>
           </div>
         </div>
@@ -109,7 +135,27 @@ function SignalCard({ signal }) {
 
 export default function LivePage({ signals, liveMatches, onRefresh }) {
   const [filter, setFilter] = useState('all');
-  const filtered = filter === 'all' ? signals : signals.filter(s => s.confidence === filter);
+  const [localSignals, setLocalSignals] = useState(null);
+
+  const displaySignals = localSignals || signals;
+  const filtered = filter === 'all' ? displaySignals : displaySignals.filter(s => s.confidence === filter);
+
+  const handleRetryConvert = async (signalId) => {
+    try {
+      const res = await fetch(`${API}/api/signals/${signalId}/convert`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success && data.signal) {
+        // Update the local copy so the UI refreshes immediately
+        setLocalSignals(prev => {
+          const base = prev || signals;
+          return base.map(s => s.id === signalId ? { ...s, sportybet: data.signal.sportybet, bookingCodes: data.signal.bookingCodes } : s);
+        });
+      }
+    } catch (err) {
+      console.error('Retry convert failed:', err);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -139,7 +185,7 @@ export default function LivePage({ signals, liveMatches, onRefresh }) {
           <p className="text-slate-500 text-sm">Signals fire when live matches meet our xG criteria</p>
         </div>
       ) : (
-        <div className="space-y-3">{filtered.map(s => <SignalCard key={s.id || s.fixtureId} signal={s} />)}</div>
+        <div className="space-y-3">{filtered.map(s => <SignalCard key={s.id || s.fixtureId} signal={s} onRetryConvert={handleRetryConvert} />)}</div>
       )}
     </div>
   );

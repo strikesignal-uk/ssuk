@@ -176,12 +176,17 @@ export default function Opportunities({ signals, liveMatches }) {
                     </div>
                   </div>
                 ) : (
-                  <button
-                    disabled
-                    className="w-full bg-slate-800 text-slate-500 font-bold text-[14px] p-[14px] cursor-not-allowed"
-                  >
-                    Bet Link Unavailable
-                  </button>
+                  <div className="border-t border-slate-800 bg-slate-900/60 px-4 py-3">
+                    <div className="flex flex-col gap-2 items-center">
+                      <button
+                        disabled
+                        className="w-full flex items-center justify-center gap-1.5 font-bold text-xs py-2.5 px-3 rounded-xl cursor-not-allowed"
+                        style={{ backgroundColor: '#374151', color: '#9ca3af', height: '44px', borderRadius: '8px' }}
+                      >
+                        🔄 Getting Sportybet code...
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
             );
