@@ -98,6 +98,7 @@ export async function initDB() {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
+    await query(`ALTER TABLE blog_posts ADD COLUMN IF NOT EXISTS image TEXT;`);
 
     console.log('[DB] PostgreSQL connected and tables ready');
   } catch (err) {

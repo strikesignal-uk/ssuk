@@ -8,45 +8,12 @@ const NAV = [
   { key: 'tradelog',  icon: '📋', label: 'Trade Log' },
   { key: 'schedule',  icon: '📅', label: 'Schedule' },
   { key: 'results',   icon: '🏆', label: 'Results' },
-  { key: 'sportybet', icon: '⚽', label: 'Sportybet' },
-  { key: 'blog',      icon: '📝', label: 'Blog & News' },
+  { key: 'sportybet', icon: '⚽', label: 'Automation' },
+  { key: 'blog',      icon: '📝', label: 'Blog' },
   { key: 'settings',  icon: '⚙️',  label: 'Settings' },
 ];
 
 export default function Sidebar({ page, setPage, user, onLogout, liveCount, collapsed, setCollapsed }) {
-  const [sbConnected, setSbConnected] = useState(false);
-  const [sbBalance, setSbBalance] = useState("₦0.00");
-
-  useEffect(() => {
-    const token = localStorage.getItem('ss_token');
-    if (!token) return;
-    fetch(`${API}/api/sportybet/status`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (d) {
-          setSbConnected(d.connected);
-          setSbBalance(d.balanceFormatted || "₦0.00");
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (!sbConnected) return;
-    const interval = setInterval(() => {
-      const token = localStorage.getItem('ss_token');
-      if (!token) return;
-      fetch(`${API}/api/sportybet/balance`, { headers: { Authorization: `Bearer ${token}` } })
-        .then(r => r.json())
-        .then(data => {
-          if (data.balanceFormatted) setSbBalance(data.balanceFormatted);
-        })
-        .catch(() => {});
-    }, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [sbConnected]);
 
   return (
     <>
@@ -96,23 +63,7 @@ export default function Sidebar({ page, setPage, user, onLogout, liveCount, coll
         {/* ── Bottom section ── */}
         <div className="border-t border-white/5 p-2 space-y-1.5 shrink-0">
 
-          {/* Sportybet balance widget */}
-          {!collapsed && (
-            <div className="bg-[#0a0f1e] border border-white/5 rounded-xl px-3 py-2.5 mb-1">
-              <div className="text-[9px] font-black text-teal-500 uppercase tracking-widest mb-1.5">⚽ SPORTYBET</div>
-              {sbConnected ? (
-                <div className="space-y-0.5">
-                  <div className="text-[11px] text-emerald-400 font-bold">● Available: {sbBalance}</div>
-                  <div className="text-[11px] text-red-400 font-bold">↘ Exposure: ₦0.00</div>
-                </div>
-              ) : (
-                <button onClick={() => setPage('sportybet')}
-                  className="text-[11px] text-amber-500 hover:text-amber-400 font-bold transition-colors">
-                  ⚽ Connect Sportybet
-                </button>
-              )}
-            </div>
-          )}
+
           {collapsed && (
             <button onClick={() => setPage('sportybet')} title="Sportybet"
               className="w-full flex items-center justify-center py-2 rounded-xl text-slate-600 hover:text-teal-400 transition-all">

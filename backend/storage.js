@@ -251,9 +251,9 @@ export async function saveBlogPost(post) {
   const now = new Date().toISOString();
   if (isUsingDB()) {
     await query(
-      `INSERT INTO blog_posts (id, title, content, created_at) VALUES ($1, $2, $3, $4)
-       ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, content = EXCLUDED.content`,
-      [post.id, post.title, post.content, post.created_at || now]
+      `INSERT INTO blog_posts (id, title, content, image, created_at) VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, content = EXCLUDED.content, image = EXCLUDED.image`,
+      [post.id, post.title, post.content, post.image || null, post.created_at || now]
     );
     return;
   }
