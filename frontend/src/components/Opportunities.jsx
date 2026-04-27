@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 const CONFIDENCE_CONFIG = {
   high:   { label: 'High',   color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/30', dot: 'bg-emerald-400' },
   medium: { label: 'Medium', color: 'text-amber-400',   bg: 'bg-amber-500/10 border-amber-500/30',     dot: 'bg-amber-400' },
-  low:    { label: 'Low',    color: 'text-slate-400',   bg: 'bg-slate-700/40 border-slate-600/30',     dot: 'bg-slate-400' },
 };
 
 function StatChip({ label, value, highlight }) {
@@ -44,7 +43,7 @@ export default function Opportunities({ signals, liveMatches }) {
       ) : (
         <div className="space-y-3">
           {signals.map(signal => {
-            const conf = CONFIDENCE_CONFIG[signal.confidence] || CONFIDENCE_CONFIG.low;
+            const conf = CONFIDENCE_CONFIG[signal.confidence] || CONFIDENCE_CONFIG.medium;
             const isOpen = expanded === signal.id;
             return (
               <div

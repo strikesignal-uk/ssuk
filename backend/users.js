@@ -49,10 +49,10 @@ function writeUsers(arr) {
 
 export async function getAllUsers() {
   if (isUsingDB()) {
-    const { rows } = await query('SELECT id, email, name, notifications, created_at FROM users ORDER BY created_at DESC');
+    const { rows } = await query('SELECT id, email, name, notifications, created_at, COALESCE(status, \'active\') as status FROM users ORDER BY created_at DESC');
     return rows;
   }
-  return readUsers().map(u => ({ id: u.id, email: u.email, name: u.name, notifications: u.notifications, created_at: u.created_at }));
+  return readUsers().map(u => ({ id: u.id, email: u.email, name: u.name, notifications: u.notifications, created_at: u.created_at, status: u.status || 'active' }));
 }
 
 export async function createUser(name, email, password) {
@@ -88,6 +88,9 @@ export async function loginUser(email, password) {
     if (!user) return { error: 'Invalid email or password' };
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return { error: 'Invalid email or password' };
+    const status = user.status || 'active';
+    if (status === 'banned') return { error: 'Your account has been banned. Contact support for more information.' };
+    if (status === 'suspended') return { error: 'Your account has been suspended. Contact support for more information.' };
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
     return { user: { id: user.id, name: user.name, email: user.email, notifications: user.notifications }, token };
   }
@@ -96,6 +99,9 @@ export async function loginUser(email, password) {
   if (!user) return { error: 'Invalid email or password' };
   const valid = await bcrypt.compare(password, user.password);
   if (!valid) return { error: 'Invalid email or password' };
+  const status = user.status || 'active';
+  if (status === 'banned') return { error: 'Your account has been banned. Contact support for more information.' };
+  if (status === 'suspended') return { error: 'Your account has been suspended. Contact support for more information.' };
   const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
   return { user: { id: user.id, name: user.name, email: user.email, notifications: user.notifications }, token };
 }
@@ -110,13 +116,13 @@ export function verifyToken(token) {
 
 export async function getUserById(userId) {
   if (isUsingDB()) {
-    const { rows } = await query('SELECT id, name, email, notifications, created_at FROM users WHERE id = $1', [userId]);
+    const { rows } = await query('SELECT id, name, email, notifications, created_at, COALESCE(status, \'active\') as status FROM users WHERE id = $1', [userId]);
     return rows[0] || null;
   }
   const users = readUsers();
   const u = users.find(u => u.id === userId);
   if (!u) return null;
-  return { id: u.id, name: u.name, email: u.email, notifications: u.notifications, created_at: u.created_at };
+  return { id: u.id, name: u.name, email: u.email, notifications: u.notifications, created_at: u.created_at, status: u.status || 'active' };
 }
 
 export async function updateProfile(userId, { name, email, password }) {
@@ -241,5 +247,69 @@ export async function resetPassword(rawToken, newPassword) {
   users[idx].resetToken = null;
   users[idx].resetTokenExpires = null;
   writeUsers(users);
+  return { success: true };
+}
+
+// ─── Admin User Management ────────────────────────────────────────────────────
+
+export async function adminUpdateUser(userId, { name, email }) {
+  if (isUsingDB()) {
+    const fields = [];
+    const values = [];
+    let idx = 1;
+    if (name !== undefined) { fields.push(`name = $${idx++}`); values.push(name); }
+    if (email !== undefined) { fields.push(`email = $${idx++}`); values.push(email); }
+    if (fields.length === 0) return { error: 'Nothing to update' };
+    values.push(userId);
+    try {
+      const { rows } = await query(
+        `UPDATE users SET ${fields.join(', ')} WHERE id = $${idx} RETURNING id, name, email, notifications, COALESCE(status, 'active') as status, created_at`,
+        values
+      );
+      if (rows.length === 0) return { error: 'User not found' };
+      return { user: rows[0] };
+    } catch (err) {
+      if (err.code === '23505') return { error: 'Email already in use' };
+      throw err;
+    }
+  }
+  const users = readUsers();
+  const idx = users.findIndex(u => u.id === userId);
+  if (idx === -1) return { error: 'User not found' };
+  if (name !== undefined) users[idx].name = name;
+  if (email !== undefined) {
+    if (users.some(u => u.email === email && u.id !== userId)) return { error: 'Email already in use' };
+    users[idx].email = email;
+  }
+  writeUsers(users);
+  const u = users[idx];
+  return { user: { id: u.id, name: u.name, email: u.email, notifications: u.notifications, status: u.status || 'active', created_at: u.created_at } };
+}
+
+export async function adminSetUserStatus(userId, status) {
+  if (!['active', 'suspended', 'banned'].includes(status)) return { error: 'Invalid status' };
+  if (isUsingDB()) {
+    const { rowCount } = await query('UPDATE users SET status = $1 WHERE id = $2', [status, userId]);
+    if (rowCount === 0) return { error: 'User not found' };
+    return { success: true };
+  }
+  const users = readUsers();
+  const idx = users.findIndex(u => u.id === userId);
+  if (idx === -1) return { error: 'User not found' };
+  users[idx].status = status;
+  writeUsers(users);
+  return { success: true };
+}
+
+export async function adminDeleteUser(userId) {
+  if (isUsingDB()) {
+    const { rowCount } = await query('DELETE FROM users WHERE id = $1', [userId]);
+    if (rowCount === 0) return { error: 'User not found' };
+    return { success: true };
+  }
+  const users = readUsers();
+  const filtered = users.filter(u => u.id !== userId);
+  if (filtered.length === users.length) return { error: 'User not found' };
+  writeUsers(filtered);
   return { success: true };
 }

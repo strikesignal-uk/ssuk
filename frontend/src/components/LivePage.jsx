@@ -5,21 +5,27 @@ const API = import.meta.env.VITE_API_URL || 'https://strikesignal-api-production
 const CONF = {
   high:   { dot: 'bg-emerald-400', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', label: 'HIGH' },
   medium: { dot: 'bg-amber-400',   badge: 'bg-amber-500/10 text-amber-400 border-amber-500/20',     label: 'MED' },
-  low:    { dot: 'bg-slate-400',   badge: 'bg-slate-700/40 text-slate-400 border-slate-600/20',     label: 'LOW' },
 };
 
 function SignalCard({ signal, onRetryConvert }) {
   const [open, setOpen] = useState(false);
   const [retrying, setRetrying] = useState(false);
-  const c = CONF[signal.confidence] || CONF.low;
+  const [retryError, setRetryError] = useState(null);
+  const c = CONF[signal.confidence] || CONF.medium;
 
   const handleRetry = async (e) => {
     e.stopPropagation();
     if (!signal.id || retrying) return;
     setRetrying(true);
+    setRetryError(null);
     try {
-      await onRetryConvert(signal.id);
-    } catch {}
+      const result = await onRetryConvert(signal.id);
+      if (result && !result.success) {
+        setRetryError(result.error || 'Conversion failed');
+      }
+    } catch (err) {
+      setRetryError(err.message || 'Network error');
+    }
     setRetrying(false);
   };
 
@@ -87,7 +93,7 @@ function SignalCard({ signal, onRetryConvert }) {
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={e => { e.stopPropagation(); window.open(signal.sportybet.betLink, '_blank'); }}
-              className="flex-1 min-w-[120px] flex items-center justify-center gap-1.5 text-white font-bold text-xs py-2.5 px-3 rounded-xl transition-all"
+              className="flex-1 min-w-[120px] flex items-center justify-center gap-1.5 text-white font-bold text-xs py-2.5 px-3 rounded-xl transition-all hover:brightness-110"
               style={{ backgroundColor: '#16a34a', height: '44px', borderRadius: '8px' }}
             >
               ⚽ Bet Now on Sportybet
@@ -112,20 +118,31 @@ function SignalCard({ signal, onRetryConvert }) {
         /* ── No Sportybet link — show getting code / retry ────────────────────── */
         <div className="border-t border-white/5 bg-[#0a0f1e]/60 px-4 py-3">
           <div className="flex flex-col gap-2 items-center">
-            <button
-              disabled
-              className="w-full flex items-center justify-center gap-1.5 font-bold text-xs py-2.5 px-3 rounded-xl cursor-not-allowed"
-              style={{ backgroundColor: '#374151', color: '#9ca3af', height: '44px', borderRadius: '8px' }}
-            >
-              🔄 Getting Sportybet code...
-            </button>
-            <button
-              onClick={handleRetry}
-              disabled={retrying}
-              className="text-[11px] font-bold text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50"
-            >
-              {retrying ? '⏳ Retrying...' : '🔄 Retry conversion'}
-            </button>
+            {retrying ? (
+              <button
+                disabled
+                className="w-full flex items-center justify-center gap-1.5 font-bold text-xs py-2.5 px-3 rounded-xl cursor-not-allowed animate-pulse"
+                style={{ backgroundColor: '#1e40af', color: '#93c5fd', height: '44px', borderRadius: '8px' }}
+              >
+                ⏳ Converting... this may take up to 45s
+              </button>
+            ) : (
+              <button
+                onClick={handleRetry}
+                className="w-full flex items-center justify-center gap-1.5 font-bold text-xs py-2.5 px-3 rounded-xl transition-all hover:brightness-110 cursor-pointer"
+                style={{ backgroundColor: '#374151', color: '#d1d5db', height: '44px', borderRadius: '8px' }}
+              >
+                🔄 Get Sportybet Code
+              </button>
+            )}
+            {retryError && (
+              <div className="text-[10px] text-red-400">
+                ❌ {retryError} — <button onClick={handleRetry} className="underline hover:text-red-300">Try again</button>
+              </div>
+            )}
+            <div className="text-[10px] text-slate-600">
+              Code will appear automatically when ready (refreshes every 15s)
+            </div>
           </div>
         </div>
       )}
@@ -140,6 +157,11 @@ export default function LivePage({ signals, liveMatches, onRefresh }) {
   const displaySignals = localSignals || signals;
   const filtered = filter === 'all' ? displaySignals : displaySignals.filter(s => s.confidence === filter);
 
+  // When parent signals update, clear local overrides so new data shows
+  React.useEffect(() => {
+    setLocalSignals(null);
+  }, [signals]);
+
   const handleRetryConvert = async (signalId) => {
     try {
       const res = await fetch(`${API}/api/signals/${signalId}/convert`, { method: 'POST' });
@@ -151,8 +173,10 @@ export default function LivePage({ signals, liveMatches, onRefresh }) {
           return base.map(s => s.id === signalId ? { ...s, sportybet: data.signal.sportybet, bookingCodes: data.signal.bookingCodes } : s);
         });
       }
+      return data;
     } catch (err) {
       console.error('Retry convert failed:', err);
+      throw err;
     }
   };
 
@@ -161,11 +185,11 @@ export default function LivePage({ signals, liveMatches, onRefresh }) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-black text-white">Live Signals</h1>
-          <p className="text-slate-500 text-sm">{signals.length} signals · {liveMatches.length} matches monitored</p>
+          <p className="text-slate-500 text-sm">{signals.length} signals · {liveMatches.length} matches monitored · refreshes every 15s</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex gap-1 bg-[#0d1527] border border-white/5 rounded-xl p-1">
-            {['all','high','medium','low'].map(f => (
+            {['all','high','medium'].map(f => (
               <button key={f} onClick={() => setFilter(f)}
                 className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${filter === f ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-white'}`}>
                 {f.charAt(0).toUpperCase() + f.slice(1)}

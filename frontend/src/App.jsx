@@ -20,6 +20,7 @@ import Privacy from './pages/Privacy.jsx';
 import About from './pages/About.jsx';
 import Contact from './pages/Contact.jsx';
 import AdminPanel from './pages/AdminPanel.jsx';
+import Blog from './pages/Blog.jsx';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -63,7 +64,7 @@ function AppShell({ user, onLogout, onUserUpdate }) {
       } catch { /* silent */ }
     }
     fetchLive();
-    const id = setInterval(fetchLive, 60000);
+    const id = setInterval(fetchLive, 15000);
     return () => clearInterval(id);
   }, []);
 
@@ -107,6 +108,7 @@ function AppShell({ user, onLogout, onUserUpdate }) {
           )}
           {page === 'settings' && <SettingsPage user={user} onUserUpdate={onUserUpdate} />}
           {page === 'profile' && <Profile user={user} onUserUpdate={onUserUpdate} />}
+          {page === 'blog' && <Blog />}
         </main>
 
         {/* Mobile Bottom Nav */}
@@ -117,6 +119,7 @@ function AppShell({ user, onLogout, onUserUpdate }) {
             { key: 'tradelog',  icon: '🕐', label: 'Trade Log' },
             { key: 'schedule',  icon: '📅', label: 'Schedule' },
             { key: 'settings',  icon: '⚙️',  label: 'Settings' },
+            { key: 'blog',      icon: '📝', label: 'Blog' },
             { key: 'sportybet', icon: '⚽', label: 'Sportybet' },
           ].map(n => (
             <button key={n.key} onClick={() => nav(n.key)}

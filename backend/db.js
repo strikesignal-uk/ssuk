@@ -81,12 +81,23 @@ export async function initDB() {
     // Users: password reset token fields
     await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token TEXT;`);
     await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMPTZ;`);
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';`);
 
     // Signals: sportybet + bet9ja booking code columns
     await query(`ALTER TABLE signals ADD COLUMN IF NOT EXISTS sportybet_share_code TEXT;`);
     await query(`ALTER TABLE signals ADD COLUMN IF NOT EXISTS sportybet_bet_link TEXT;`);
     await query(`ALTER TABLE signals ADD COLUMN IF NOT EXISTS sportybet_market TEXT;`);
     await query(`ALTER TABLE signals ADD COLUMN IF NOT EXISTS bet9ja_code TEXT;`);
+
+    // Blog Posts
+    await query(`
+      CREATE TABLE IF NOT EXISTS blog_posts (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
 
     console.log('[DB] PostgreSQL connected and tables ready');
   } catch (err) {

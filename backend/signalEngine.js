@@ -40,20 +40,33 @@ export async function generateSignal(match) {
     confidence = 'medium';
   }
 
+  // Eradicate low confidence signals as requested
+  if (confidence === 'low') {
+    console.log(`[SignalEngine] Discarding LOW confidence signal for ${match.home} vs ${match.away}`);
+    return null;
+  }
+
   const expectedScore = `${Math.round(xG.home)}-${Math.round(xG.away)}`;
   const reason = `xGGap: ${xGGap.toFixed(2)}, Danger Attacks: ${dangerAttacks}, xG: ${xG.total.toFixed(2)}`;
 
-  console.log(`🎯 Signal fired: ${match.home} vs ${match.away} [${confidence.toUpperCase()}]`);
+  console.log(`\n🎯 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+  console.log(`🎯 New signal: ${match.home} vs ${match.away}`);
+  console.log(`🎯 Bet type: ${betType} | Confidence: ${confidence.toUpperCase()}`);
+  console.log(`🎯 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
   // ── Convert fixture to Sportybet code BEFORE saving ────────────────────────
-  console.log(`🔄 Converting to Sportybet code...`);
+  console.log(`🔄 Starting conversion for: ${match.home} vs ${match.away}...`);
+  const conversionStart = Date.now();
   const conversion = await convertToSportybet(match.home, match.away, betType);
+  const conversionTime = ((Date.now() - conversionStart) / 1000).toFixed(1);
+  console.log(`⏱️ Conversion took ${conversionTime}s`);
 
   let sportybetData = null;
   let bookingCodesData = null;
 
   if (conversion.success) {
-    console.log(`✅ Code ready: ${conversion.shareCode}`);
+    console.log(`✅ Conversion complete: ${conversion.shareCode}`);
+    console.log(`✅ Bet link: ${conversion.betLink}`);
     sportybetData = {
       shareCode: conversion.shareCode,
       betLink: conversion.betLink,
@@ -67,7 +80,8 @@ export async function generateSignal(match) {
       bet9ja: null,
     };
   } else {
-    console.log(`⚠️ No Sportybet link for this signal`);
+    console.log(`⚠️ Conversion failed: ${conversion.error}`);
+    console.log(`⚠️ Saving signal WITHOUT Sportybet link`);
   }
 
   // If the admin has enabled "Only show signals with booking codes",
@@ -94,7 +108,8 @@ export async function generateSignal(match) {
     sportybet: sportybetData,
   };
 
-  console.log(`💾 Signal saved with Sportybet link`);
+  console.log(`💾 Signal saved — sportybet: ${sportybetData ? sportybetData.shareCode : 'null'}`);
+  console.log(`💾 Signal object sportybet field: ${JSON.stringify(finalSignal.sportybet)}`);
 
   // Fire automation engine asynchronously — do NOT await to avoid blocking the poll cycle
   processSignalForBots({

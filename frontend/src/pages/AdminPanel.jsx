@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts';
+import AiChatTab from '../components/AiChatTab';
 
 const API = import.meta.env.VITE_API_URL;
 
@@ -43,11 +45,13 @@ function AdminLogin({ onAuth }) {
 
 // ── Sidebar Nav ──────────────────────────────────────────────────────────────
 const TABS = [
+  { key: 'dashboard', icon: '📊', label: 'Dashboard Overview' },
+  { key: 'blog', icon: '📝', label: 'Blog Manager' },
   { key: 'chats', icon: '💬', label: 'Live Chats' },
-  { key: 'contacts', icon: '📧', label: 'Contact Messages' },
-  { key: 'broadcast', icon: '📣', label: 'Broadcasts' },
+  { key: 'ai-chat', icon: '🤖', label: 'AI Betting Chat' },
   { key: 'users', icon: '👥', label: 'Users' },
-  { key: 'stats', icon: '📊', label: 'Signal Stats' },
+  { key: 'broadcast', icon: '📣', label: 'Broadcasts' },
+  { key: 'contacts', icon: '📧', label: 'Contact Messages' },
   { key: 'settings', icon: '⚙️', label: 'Settings' },
 ];
 
@@ -281,21 +285,346 @@ function ContactsTab() {
   );
 }
 
-// ── Stats Tab ────────────────────────────────────────────────────────────────
-function StatsTab() {
-  const [stats, setStats] = useState(null);
-  useEffect(() => {
-    fetch(`${API}/api/results?period=daily`).then(r => r.json()).then(d => setStats(d.stats)).catch(() => {});
-  }, []);
-  if (!stats) return <div className="p-6 text-slate-500">Loading...</div>;
+// ── Dashboard Overview Tab ───────────────────────────────────────────────────
+const DEFAULT_STAKE = 2000;
+const fmtN = n => '₦' + Math.abs(Number(n)).toLocaleString('en-NG');
+
+const AdminChartTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  const v = payload[0].value;
   return (
-    <div className="p-6 space-y-4">
-      <h2 className="text-sm font-black text-white uppercase tracking-widest">Signal Stats — Today</h2>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[['Total Signals', stats.total], ['Wins', stats.wins], ['Losses', stats.losses], ['Strike Rate', `${stats.strikeRate}%`]].map(([l, v]) => (
-          <div key={l} className="bg-[#0d1527] border border-white/5 rounded-2xl p-5 text-center">
-            <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">{l}</div>
-            <div className="text-2xl font-black text-white">{v}</div>
+    <div className="bg-[#0d1527] border border-white/10 rounded-xl px-4 py-2 shadow-2xl">
+      <p className="text-slate-400 text-xs mb-1">{label}</p>
+      <p className={`font-black text-sm ${v >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{v >= 0 ? '+' : ''}{fmtN(v)}</p>
+    </div>
+  );
+};
+
+const ADMIN_PERIODS = [
+  { key: 'today', label: 'Today' },
+  { key: '7d', label: '7D' },
+  { key: '30d', label: '30D' },
+  { key: '60d', label: '60D' },
+  { key: 'mtd', label: 'MTD' },
+  { key: 'all', label: 'All' },
+];
+
+function getAdminCutoff(period) {
+  const now = new Date();
+  switch (period) {
+    case 'today': return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    case '7d': return now.getTime() - 7 * 86400000;
+    case '30d': return now.getTime() - 30 * 86400000;
+    case '60d': return now.getTime() - 60 * 86400000;
+    case 'mtd': return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    case 'all': return 0;
+    default: return now.getTime() - 30 * 86400000;
+  }
+}
+
+function DashboardTab() {
+  const [allSignals, setAllSignals] = useState([]);
+  const [userCount, setUserCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState('30d');
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      fetch(`${API}/api/results?period=monthly`).then(r => r.json()),
+      fetch(`${API}/api/signals`).then(r => r.json()).catch(() => []),
+      fetch(`${API}/api/admin/users`).then(r => r.json()).catch(() => [])
+    ]).then(([res, sigs, u]) => {
+      setAllSignals(res.results || sigs || []);
+      setUserCount(Array.isArray(u) ? u.length : 0);
+    }).finally(() => setLoading(false));
+  }, []);
+
+  const filtered = useMemo(() => {
+    const cutoff = getAdminCutoff(period);
+    return allSignals.filter(s => new Date(s.created_at).getTime() >= cutoff);
+  }, [allSignals, period]);
+
+  const stats = useMemo(() => {
+    const resolved = filtered.filter(s => s.result !== 'pending');
+    const wins = resolved.filter(s => s.result === 'win').length;
+    const losses = resolved.filter(s => s.result === 'loss').length;
+    const totalTrades = resolved.length;
+    const strikeRate = totalTrades > 0 ? (wins / totalTrades * 100).toFixed(1) : '0.0';
+    const oddsArr = resolved.map(s => s.betOdds || s.odds).filter(o => o && !isNaN(o));
+    const avgOdds = oddsArr.length > 0 ? oddsArr.reduce((a, b) => a + Number(b), 0) / oddsArr.length : 1.68;
+    const totalPnL = wins * (DEFAULT_STAKE * (avgOdds - 1)) - losses * DEFAULT_STAKE;
+    const unitsProfit = totalTrades > 0 ? totalPnL / DEFAULT_STAKE : 0;
+    const totalStaked = totalTrades * DEFAULT_STAKE;
+    const roi = totalStaked > 0 ? (totalPnL / totalStaked * 100).toFixed(1) : '0.0';
+    return { wins, losses, totalTrades, strikeRate, avgOdds, totalPnL, unitsProfit, roi };
+  }, [filtered]);
+
+  const chartData = useMemo(() => {
+    const resolved = filtered.filter(s => s.result !== 'pending');
+    if (resolved.length === 0) return [];
+    const sorted = [...resolved].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    const map = {};
+    const oddsArr = resolved.map(s => s.betOdds || s.odds).filter(o => o && !isNaN(o));
+    const avgOdds = oddsArr.length > 0 ? oddsArr.reduce((a, b) => a + Number(b), 0) / oddsArr.length : 1.68;
+    sorted.forEach(s => {
+      const d = new Date(s.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      if (!map[d]) map[d] = 0;
+      if (s.result === 'win') map[d] += DEFAULT_STAKE * (avgOdds - 1);
+      else if (s.result === 'loss') map[d] -= DEFAULT_STAKE;
+    });
+    let cum = 0;
+    return Object.entries(map).map(([date, pnl]) => {
+      cum += pnl;
+      return { date, pnl: Math.round(pnl), cumulative: Math.round(cum) };
+    });
+  }, [filtered]);
+
+  const recentTrades = useMemo(() => {
+    return filtered.filter(s => s.result !== 'pending').slice(0, 6);
+  }, [filtered]);
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
+  return (
+    <div className="p-6 space-y-5 max-w-6xl">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-black text-white">Admin Dashboard 📊</h1>
+        <p className="text-slate-500 text-sm mt-1">Platform-wide performance overview</p>
+      </div>
+
+      {/* Period Tabs */}
+      <div className="flex gap-1 overflow-x-auto pb-1">
+        {ADMIN_PERIODS.map(p => (
+          <button key={p.key} onClick={() => setPeriod(p.key)}
+            className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
+              period === p.key ? 'bg-blue-600 text-white' : 'bg-[#1a2744] text-slate-500 hover:text-white'
+            }`}>{p.label}</button>
+        ))}
+      </div>
+
+      {/* Row 1: Main Stat Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="bg-[#0d1527] border border-white/5 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Registered Users</span>
+            <span className="text-slate-600">👥</span>
+          </div>
+          <div className="text-2xl font-black text-blue-400">{userCount}</div>
+          <div className="text-xs text-slate-500 mt-1 font-medium">Platform accounts</div>
+        </div>
+        <div className="bg-[#0d1527] border border-white/5 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Trades</span>
+            <span className="text-slate-600">📈</span>
+          </div>
+          <div className="text-2xl font-black text-white">{stats.totalTrades}</div>
+          <div className="text-xs text-slate-500 mt-1 font-medium"><span className="text-emerald-400">{stats.wins}W</span> — <span className="text-red-400">{stats.losses}L</span></div>
+        </div>
+        <div className="bg-[#0d1527] border border-white/5 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Strike Rate</span>
+            <span className="text-slate-600">%</span>
+          </div>
+          <div className={`text-2xl font-black ${Number(stats.strikeRate) >= 50 ? 'text-emerald-400' : 'text-red-400'}`}>{stats.strikeRate}%</div>
+          <div className="text-xs text-slate-500 mt-1 font-medium">Win percentage</div>
+        </div>
+        <div className="bg-[#0d1527] border border-white/5 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total P&L</span>
+            <span className="text-slate-600">💰</span>
+          </div>
+          <div className={`text-2xl font-black ${stats.totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{stats.totalPnL >= 0 ? '+' : ''}{fmtN(stats.totalPnL)}</div>
+          <div className="text-xs text-slate-500 mt-1 font-medium">{stats.totalPnL >= 0 ? '↗ Net Profit' : '↘ Net Loss'}</div>
+        </div>
+        <div className="bg-[#0d1527] border border-white/5 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Units Profit</span>
+            <span className="text-slate-600">🎯</span>
+          </div>
+          <div className={`text-2xl font-black ${stats.unitsProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{stats.totalTrades > 0 ? stats.unitsProfit.toFixed(1) : '—'}</div>
+          <div className="text-xs text-slate-500 mt-1 font-medium">{stats.totalTrades > 0 ? `@ ${fmtN(DEFAULT_STAKE)} avg stake` : 'No trades yet'}</div>
+        </div>
+      </div>
+
+      {/* Row 2: Secondary Stats */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-[#0b1222] border border-white/5 rounded-2xl p-4">
+          <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Avg Odds</div>
+          <div className="text-xl font-black text-white">{stats.totalTrades > 0 ? stats.avgOdds.toFixed(2) : '—'}</div>
+          <div className="text-xs text-slate-500 mt-1 font-medium">{fmtN(DEFAULT_STAKE)} avg stake</div>
+        </div>
+        <div className="bg-[#0b1222] border border-white/5 rounded-2xl p-4">
+          <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">ROI</div>
+          <div className={`text-xl font-black ${Number(stats.roi) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{stats.totalTrades > 0 ? `${stats.roi}%` : '—'}</div>
+          <div className="text-xs text-slate-500 mt-1 font-medium">P&L ÷ total staked</div>
+        </div>
+        <div className="bg-[#0b1222] border border-white/5 rounded-2xl p-4">
+          <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">ROC</div>
+          <div className={`text-xl font-black ${Number(stats.roi) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{stats.totalTrades > 0 ? `${stats.roi}%` : '—'}</div>
+          <div className="text-xs text-slate-500 mt-1 font-medium">P&L ÷ peak capital at risk</div>
+        </div>
+      </div>
+
+      {/* Row 3: Chart + Recent Trades */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        {/* Chart */}
+        <div className="lg:col-span-3 bg-[#0d1527] border border-white/5 rounded-2xl p-6">
+          <div className="mb-4">
+            <h2 className="text-sm font-black text-white uppercase tracking-widest">Cumulative Profit &amp; Loss</h2>
+            <p className="text-[11px] text-slate-500 mt-0.5">Last {period === 'all' ? 'all time' : period.toUpperCase()} · performance tracking</p>
+          </div>
+          {chartData.length === 0 ? (
+            <div className="flex flex-col items-center justify-center" style={{ height: 200 }}>
+              <div className="flex items-center justify-center gap-1 my-2 opacity-40">
+                <svg width="120" height="24" viewBox="0 0 120 24">
+                  <polyline points="0,12 30,12 38,4 42,20 46,8 50,16 54,12 120,12" fill="none" stroke="#3b82f6" strokeWidth="1.5">
+                    <animate attributeName="stroke-dashoffset" from="200" to="0" dur="2s" repeatCount="indefinite"/>
+                  </polyline>
+                </svg>
+              </div>
+              <p className="text-slate-600 text-sm font-semibold mt-2">No trades logged yet.</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="adminPosFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.2} />
+                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                <XAxis dataKey="date" tick={{ fill: '#475569', fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#475569', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `₦${(v/1000).toFixed(0)}k`} />
+                <Tooltip content={<AdminChartTooltip />} />
+                <ReferenceLine y={0} stroke="#334155" strokeDasharray="4 4" />
+                <Area type="monotone" dataKey="cumulative" stroke="#3b82f6" strokeWidth={2} fill="url(#adminPosFill)" dot={false} activeDot={{ r: 4, fill: '#3b82f6' }} />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* Recent Trades */}
+        <div className="lg:col-span-2 bg-[#0d1527] border border-white/5 rounded-2xl p-6 flex flex-col">
+          <div className="mb-4">
+            <h2 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">📋 Recent Trades</h2>
+            <p className="text-[11px] text-slate-500 mt-0.5">Last 6 logged positions</p>
+          </div>
+          {recentTrades.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center py-6">
+              <div className="flex items-center justify-center gap-1 my-2 opacity-40">
+                <svg width="120" height="24" viewBox="0 0 120 24">
+                  <polyline points="0,12 30,12 38,4 42,20 46,8 50,16 54,12 120,12" fill="none" stroke="#3b82f6" strokeWidth="1.5">
+                    <animate attributeName="stroke-dashoffset" from="200" to="0" dur="2s" repeatCount="indefinite"/>
+                  </polyline>
+                </svg>
+              </div>
+              <p className="text-slate-600 text-sm font-semibold mt-2">No trades logged yet.</p>
+            </div>
+          ) : (
+            <div className="flex-1 space-y-0 divide-y divide-white/5">
+              {recentTrades.map(r => {
+                const isWin = r.result === 'win';
+                const odds = r.betOdds || r.odds || 1.68;
+                const pnl = isWin ? DEFAULT_STAKE * (Number(odds) - 1) : -DEFAULT_STAKE;
+                return (
+                  <div key={r.id} className="flex items-center gap-3 py-3">
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${
+                      isWin ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'
+                    }`}>{isWin ? '✓' : '✕'}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-white text-xs font-bold truncate">{r.home} vs {r.away} · {r.betType}</div>
+                      <div className="text-[10px] text-slate-600 mt-0.5">
+                        {new Date(r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} · {r.minute}' · {r.confidence} confidence
+                      </div>
+                    </div>
+                    <div className={`text-xs font-black shrink-0 ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {pnl >= 0 ? '+' : ''}{fmtN(pnl)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Blog Manager Tab ────────────────────────────────────────────────────────
+function BlogManagerTab() {
+  const [posts, setPosts] = useState([]);
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [editing, setEditing] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const loadPosts = async () => {
+    try {
+      const res = await fetch(`${API}/api/blog`);
+      if (res.ok) setPosts(await res.json());
+    } catch {}
+  };
+
+  useEffect(() => { loadPosts(); }, []);
+
+  const savePost = async () => {
+    if (!title || !content) return;
+    setLoading(true);
+    const method = editing ? 'PUT' : 'POST';
+    const url = editing ? `${API}/api/admin/blog/${editing.id}` : `${API}/api/admin/blog`;
+    try {
+      await fetch(url, {
+        method, headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, content })
+      });
+      setTitle(''); setContent(''); setEditing(null);
+      loadPosts();
+    } catch {}
+    setLoading(false);
+  };
+
+  const deletePost = async (id) => {
+    if (!confirm('Are you sure you want to delete this post?')) return;
+    await fetch(`${API}/api/admin/blog/${id}`, { method: 'DELETE' });
+    loadPosts();
+  };
+
+  return (
+    <div className="p-6 max-w-4xl space-y-6">
+      <h2 className="text-sm font-black text-white uppercase tracking-widest">Blog Manager</h2>
+      
+      <div className="bg-[#0d1527] border border-white/5 rounded-2xl p-6 space-y-4">
+        <h3 className="text-xs font-bold text-slate-400 uppercase">{editing ? 'Edit Post' : 'Create New Post'}</h3>
+        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Post Title" className="w-full bg-[#0a0f1e] border border-white/5 text-white rounded-xl px-4 py-2.5 text-sm outline-none" />
+        <textarea value={content} onChange={e => setContent(e.target.value)} rows="8" placeholder="Post Content (HTML allowed)" className="w-full bg-[#0a0f1e] border border-white/5 text-white rounded-xl px-4 py-2.5 text-sm outline-none font-mono text-xs"></textarea>
+        <div className="flex gap-2">
+          <button onClick={savePost} disabled={loading || !title || !content} className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold py-2 px-6 rounded-xl text-sm transition-all">
+            {loading ? 'Saving...' : (editing ? 'Update Post' : 'Publish Post')}
+          </button>
+          {editing && <button onClick={() => { setEditing(null); setTitle(''); setContent(''); }} className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-6 rounded-xl text-sm transition-all">Cancel</button>}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <h3 className="text-xs font-bold text-slate-400 uppercase">Published Posts ({posts.length})</h3>
+        {posts.map(p => (
+          <div key={p.id} className="bg-[#0d1527] border border-white/5 rounded-2xl p-4 flex items-center justify-between">
+            <div>
+              <div className="font-bold text-white text-sm">{p.title}</div>
+              <div className="text-xs text-slate-500 mt-1">{new Date(p.created_at).toLocaleString()}</div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => { setEditing(p); setTitle(p.title); setContent(p.content); window.scrollTo(0, 0); }} className="text-xs bg-blue-600/20 text-blue-400 px-3 py-1.5 rounded-lg font-bold hover:bg-blue-600/30">Edit</button>
+              <button onClick={() => deletePost(p.id)} className="text-xs bg-red-600/20 text-red-400 px-3 py-1.5 rounded-lg font-bold hover:bg-red-600/30">Delete</button>
+            </div>
           </div>
         ))}
       </div>
@@ -306,29 +635,243 @@ function StatsTab() {
 // ── Users Tab ────────────────────────────────────────────────────────────────
 function UsersTab() {
   const [users, setUsers] = useState([]);
-  useEffect(() => {
-    fetch(`${API}/api/admin/users`).then(r => r.ok ? r.json() : []).then(d => setUsers(d)).catch(() => {});
-  }, []);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [selected, setSelected] = useState(null);    // user detail / dashboard modal
+  const [editing, setEditing] = useState(null);       // edit modal
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editMsg, setEditMsg] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [actionMsg, setActionMsg] = useState('');
+
+  const loadUsers = async () => {
+    try { const r = await fetch(`${API}/api/admin/users`); if (r.ok) setUsers(await r.json()); } catch {}
+  };
+  useEffect(() => { loadUsers(); }, []);
+
+  const filtered = users.filter(u => {
+    if (statusFilter !== 'all' && (u.status || 'active') !== statusFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      return u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  const setStatus = async (userId, status) => {
+    setActionMsg('');
+    const res = await fetch(`${API}/api/admin/users/${userId}/status`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    if (res.ok) { setActionMsg(`✅ User ${status}`); loadUsers(); }
+    else setActionMsg('❌ Failed to update status');
+  };
+
+  const deleteUser = async (userId) => {
+    const res = await fetch(`${API}/api/admin/users/${userId}`, { method: 'DELETE' });
+    if (res.ok) { setActionMsg('✅ User deleted'); setConfirmDelete(null); loadUsers(); }
+    else setActionMsg('❌ Failed to delete user');
+  };
+
+  const saveEdit = async () => {
+    setEditMsg('');
+    const res = await fetch(`${API}/api/admin/users/${editing.id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: editName, email: editEmail })
+    });
+    if (res.ok) { setEditMsg('✅ Saved'); loadUsers(); setTimeout(() => setEditing(null), 800); }
+    else { const d = await res.json(); setEditMsg(`❌ ${d.error || 'Failed'}`); }
+  };
+
+  const statusBadge = (s) => {
+    const status = s || 'active';
+    const map = {
+      active: 'bg-emerald-500/15 text-emerald-400',
+      suspended: 'bg-amber-500/15 text-amber-400',
+      banned: 'bg-red-500/15 text-red-400',
+    };
+    return <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase ${map[status] || map.active}`}>{status}</span>;
+  };
+
+  const activeCount = users.filter(u => (u.status || 'active') === 'active').length;
+  const suspendedCount = users.filter(u => u.status === 'suspended').length;
+  const bannedCount = users.filter(u => u.status === 'banned').length;
+
   return (
-    <div className="p-6 space-y-4">
-      <h2 className="text-sm font-black text-white uppercase tracking-widest">Registered Users ({users.length})</h2>
-      <div className="bg-[#0d1527] border border-white/5 rounded-2xl overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead><tr className="border-b border-white/5 text-slate-500 text-xs uppercase">
-            <th className="text-left p-3">Name</th><th className="text-left p-3">Email</th><th className="text-left p-3">Joined</th>
-          </tr></thead>
-          <tbody>
-            {users.length === 0 ? <tr><td colSpan="3" className="p-6 text-center text-slate-600">No users</td></tr> :
-              users.map(u => (
-                <tr key={u.id} className="border-b border-white/5">
-                  <td className="p-3 text-white font-medium">{u.name}</td>
+    <div className="p-6 space-y-5">
+      {/* Header Stats */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h2 className="text-sm font-black text-white uppercase tracking-widest">User Management</h2>
+        <div className="flex gap-2">
+          <span className="text-[11px] font-bold bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-full">{activeCount} Active</span>
+          <span className="text-[11px] font-bold bg-amber-500/10 text-amber-400 px-2.5 py-1 rounded-full">{suspendedCount} Suspended</span>
+          <span className="text-[11px] font-bold bg-red-500/10 text-red-400 px-2.5 py-1 rounded-full">{bannedCount} Banned</span>
+          <span className="text-[11px] font-bold bg-blue-500/10 text-blue-400 px-2.5 py-1 rounded-full">{users.length} Total</span>
+        </div>
+      </div>
+
+      {actionMsg && <div className="text-sm font-bold text-slate-300 bg-[#0d1527] border border-white/5 rounded-xl px-4 py-2">{actionMsg}</div>}
+
+      {/* Search & Filter */}
+      <div className="flex gap-3 flex-wrap">
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or email..."
+          className="flex-1 min-w-[200px] bg-[#0d1527] border border-white/5 text-white rounded-xl px-4 py-2.5 text-sm outline-none" />
+        <div className="flex gap-1">
+          {[['all', 'All'], ['active', 'Active'], ['suspended', 'Suspended'], ['banned', 'Banned']].map(([k, l]) => (
+            <button key={k} onClick={() => setStatusFilter(k)}
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                statusFilter === k ? 'bg-blue-600 text-white' : 'bg-[#0d1527] text-slate-500 hover:text-white border border-white/5'
+              }`}>{l}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Users Table */}
+      <div className="bg-[#0d1527] border border-white/5 rounded-2xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-white/5 text-slate-500 text-xs uppercase">
+                <th className="text-left p-3">User</th>
+                <th className="text-left p-3">Email</th>
+                <th className="text-left p-3">Status</th>
+                <th className="text-left p-3">Joined</th>
+                <th className="text-left p-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan="5" className="p-6 text-center text-slate-600">No users found</td></tr>
+              ) : filtered.map(u => (
+                <tr key={u.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                  <td className="p-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                        {u.name?.charAt(0).toUpperCase() || '?'}
+                      </div>
+                      <span className="text-white font-medium">{u.name}</span>
+                    </div>
+                  </td>
                   <td className="p-3 text-slate-400">{u.email}</td>
-                  <td className="p-3 text-slate-500 text-xs">{new Date(u.created_at).toLocaleDateString()}</td>
+                  <td className="p-3">{statusBadge(u.status)}</td>
+                  <td className="p-3 text-slate-500 text-xs">{new Date(u.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+                  <td className="p-3">
+                    <div className="flex gap-1.5 flex-wrap">
+                      <button onClick={() => setSelected(u)} className="text-[10px] bg-blue-600/20 text-blue-400 px-2 py-1 rounded-lg font-bold hover:bg-blue-600/30 transition-all">View</button>
+                      <button onClick={() => { setEditing(u); setEditName(u.name); setEditEmail(u.email); setEditMsg(''); }} className="text-[10px] bg-slate-600/20 text-slate-300 px-2 py-1 rounded-lg font-bold hover:bg-slate-600/30 transition-all">Edit</button>
+                      {(u.status || 'active') === 'active' && (
+                        <button onClick={() => setStatus(u.id, 'suspended')} className="text-[10px] bg-amber-600/20 text-amber-400 px-2 py-1 rounded-lg font-bold hover:bg-amber-600/30 transition-all">Suspend</button>
+                      )}
+                      {(u.status || 'active') === 'active' && (
+                        <button onClick={() => setStatus(u.id, 'banned')} className="text-[10px] bg-red-600/20 text-red-400 px-2 py-1 rounded-lg font-bold hover:bg-red-600/30 transition-all">Ban</button>
+                      )}
+                      {(u.status === 'suspended' || u.status === 'banned') && (
+                        <button onClick={() => setStatus(u.id, 'active')} className="text-[10px] bg-emerald-600/20 text-emerald-400 px-2 py-1 rounded-lg font-bold hover:bg-emerald-600/30 transition-all">Activate</button>
+                      )}
+                      <button onClick={() => setConfirmDelete(u)} className="text-[10px] bg-red-600/20 text-red-400 px-2 py-1 rounded-lg font-bold hover:bg-red-600/30 transition-all">Delete</button>
+                    </div>
+                  </td>
                 </tr>
               ))}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      {/* ── View User Dashboard Modal ── */}
+      {selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setSelected(null)}>
+          <div onClick={e => e.stopPropagation()} className="bg-[#0d1527] border border-white/10 rounded-2xl w-full max-w-lg p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-black text-white">User Dashboard</h3>
+              <button onClick={() => setSelected(null)} className="text-slate-400 hover:text-white text-lg">✕</button>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-xl font-bold shrink-0">
+                {selected.name?.charAt(0).toUpperCase() || '?'}
+              </div>
+              <div>
+                <div className="text-white font-bold text-lg">{selected.name}</div>
+                <div className="text-slate-400 text-sm">{selected.email}</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-[#0a0f1e] border border-white/5 rounded-xl p-4">
+                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Account Status</div>
+                <div className="text-sm font-bold">{statusBadge(selected.status)}</div>
+              </div>
+              <div className="bg-[#0a0f1e] border border-white/5 rounded-xl p-4">
+                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Member Since</div>
+                <div className="text-sm font-bold text-white">{new Date(selected.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+              </div>
+              <div className="bg-[#0a0f1e] border border-white/5 rounded-xl p-4">
+                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">User ID</div>
+                <div className="text-sm font-mono text-slate-400">{selected.id}</div>
+              </div>
+              <div className="bg-[#0a0f1e] border border-white/5 rounded-xl p-4">
+                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Notifications</div>
+                <div className="text-sm font-bold text-white">{selected.notifications ? '🔔 Enabled' : '🔕 Disabled'}</div>
+              </div>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button onClick={() => { setEditing(selected); setEditName(selected.name); setEditEmail(selected.email); setEditMsg(''); setSelected(null); }} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-xl text-sm transition-all">Edit User</button>
+              {(selected.status || 'active') === 'active' && (
+                <button onClick={() => { setStatus(selected.id, 'suspended'); setSelected(null); }} className="bg-amber-600/20 text-amber-400 font-bold py-2 px-4 rounded-xl text-sm border border-amber-500/20 hover:bg-amber-600/30 transition-all">Suspend</button>
+              )}
+              {(selected.status || 'active') === 'active' && (
+                <button onClick={() => { setStatus(selected.id, 'banned'); setSelected(null); }} className="bg-red-600/20 text-red-400 font-bold py-2 px-4 rounded-xl text-sm border border-red-500/20 hover:bg-red-600/30 transition-all">Ban</button>
+              )}
+              {(selected.status === 'suspended' || selected.status === 'banned') && (
+                <button onClick={() => { setStatus(selected.id, 'active'); setSelected(null); }} className="bg-emerald-600/20 text-emerald-400 font-bold py-2 px-4 rounded-xl text-sm border border-emerald-500/20 hover:bg-emerald-600/30 transition-all">Activate</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit User Modal ── */}
+      {editing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setEditing(null)}>
+          <div onClick={e => e.stopPropagation()} className="bg-[#0d1527] border border-white/10 rounded-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-black text-white">Edit User</h3>
+              <button onClick={() => setEditing(null)} className="text-slate-400 hover:text-white text-lg">✕</button>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Name</label>
+              <input value={editName} onChange={e => setEditName(e.target.value)} className="w-full bg-[#0a0f1e] border border-white/5 text-white rounded-xl px-4 py-2.5 text-sm outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Email</label>
+              <input value={editEmail} onChange={e => setEditEmail(e.target.value)} className="w-full bg-[#0a0f1e] border border-white/5 text-white rounded-xl px-4 py-2.5 text-sm outline-none" />
+            </div>
+            {editMsg && <div className="text-sm font-bold text-slate-300">{editMsg}</div>}
+            <div className="flex gap-2 pt-2">
+              <button onClick={saveEdit} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition-all">Save Changes</button>
+              <button onClick={() => setEditing(null)} className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition-all">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete Confirmation Modal ── */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setConfirmDelete(null)}>
+          <div onClick={e => e.stopPropagation()} className="bg-[#0d1527] border border-red-500/20 rounded-2xl w-full max-w-sm p-6 space-y-4">
+            <div className="text-center">
+              <div className="text-4xl mb-3">⚠️</div>
+              <h3 className="text-lg font-black text-white mb-2">Delete User Account?</h3>
+              <p className="text-slate-400 text-sm">Are you sure you want to permanently delete <strong className="text-white">{confirmDelete.name}</strong>'s account? This action cannot be undone.</p>
+            </div>
+            <div className="flex gap-2 justify-center pt-2">
+              <button onClick={() => deleteUser(confirmDelete.id)} className="bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition-all">Yes, Delete</button>
+              <button onClick={() => setConfirmDelete(null)} className="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition-all">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -512,13 +1055,14 @@ function SettingsTab() {
       </div>
     </div>
   );
+}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // ADMIN PANEL ROOT
 // ═════════════════════════════════════════════════════════════════════════════
 export default function AdminPanel() {
   const [authed, setAuthed] = useState(() => !!sessionStorage.getItem('ss_admin'));
-  const [tab, setTab] = useState('chats');
+  const [tab, setTab] = useState('dashboard');
 
   if (!authed) return <AdminLogin onAuth={() => setAuthed(true)} />;
 
@@ -546,10 +1090,12 @@ export default function AdminPanel() {
       </aside>
       {/* Content */}
       <div className="flex-1 min-w-0">
+        {tab === 'dashboard' && <DashboardTab />}
+        {tab === 'blog' && <BlogManagerTab />}
         {tab === 'chats' && <ChatsTab />}
+        {tab === 'ai-chat' && <AiChatTab />}
         {tab === 'contacts' && <ContactsTab />}
         {tab === 'broadcast' && <BroadcastTab />}
-        {tab === 'stats' && <StatsTab />}
         {tab === 'users' && <UsersTab />}
         {tab === 'settings' && <SettingsTab />}
       </div>

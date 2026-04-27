@@ -60,6 +60,7 @@ Based on the match statistics, provide your enhanced analysis. Respond in EXACTL
     if (!parsed.betType || !parsed.confidence || !parsed.reason) return baseSignal;
 
     return {
+      ...baseSignal,                    // ← preserve sportybet, bookingCodes, betOdds etc.
       betType: parsed.betType,
       expectedScore: parsed.expectedScore || baseSignal.expectedScore,
       confidence: parsed.confidence,

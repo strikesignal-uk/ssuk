@@ -24,11 +24,12 @@ import {
 } from './storage.js';
 import { getSettings, updateSettings } from './settings.js';
 import { loginSportybet, fetchBalance } from "./sportybetScraper.js";
-import { createUser, loginUser, verifyToken, getAllUsers, updateNotifications, getNotifiableUsers, getUserById, updateProfile, createPasswordResetToken, resetPassword } from './users.js';
+import { createUser, loginUser, verifyToken, getAllUsers, updateNotifications, getNotifiableUsers, getUserById, updateProfile, createPasswordResetToken, resetPassword, adminUpdateUser, adminSetUserStatus, adminDeleteUser } from './users.js';
 import fs from 'fs';
 import { sendSignalNotification, sendWelcomeEmail, sendTestEmail, sendPasswordResetEmail, sendBroadcastEmail } from './email.js';
 import { sendTelegramBroadcast } from './telegram.js';
 import { askAdminAssistant } from './chat.js';
+import { processSignalForBots, testAutomation } from './automationEngine.js';
 import { initDB } from './db.js';
 
 dotenv.config();
@@ -86,6 +87,10 @@ async function poll() {
       }
     } else {
       console.log(`[${new Date().toISOString()}] No users with notifications enabled, skipping email`);
+    }
+    // 🤖 Trigger automation bots for each new signal
+    for (const sig of newSignals) {
+      processSignalForBots(sig).catch(err => console.error('[Automation] Error:', err.message));
     }
   }
   console.log(`[${new Date().toISOString()}] Matches: ${liveMatches.length}, Signals: ${signalsGenerated}`);
@@ -407,6 +412,32 @@ app.get('/api/admin/users', async (req, res) => {
   res.json(await getAllUsers());
 });
 
+app.get('/api/admin/users/:id', async (req, res) => {
+  const user = await getUserById(req.params.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  res.json(user);
+});
+
+app.put('/api/admin/users/:id', async (req, res) => {
+  const { name, email } = req.body;
+  const result = await adminUpdateUser(req.params.id, { name, email });
+  if (result.error) return res.status(400).json({ error: result.error });
+  res.json(result.user);
+});
+
+app.patch('/api/admin/users/:id/status', async (req, res) => {
+  const { status } = req.body;
+  const result = await adminSetUserStatus(req.params.id, status);
+  if (result.error) return res.status(400).json({ error: result.error });
+  res.json({ success: true });
+});
+
+app.delete('/api/admin/users/:id', async (req, res) => {
+  const result = await adminDeleteUser(req.params.id);
+  if (result.error) return res.status(404).json({ error: result.error });
+  res.json({ success: true });
+});
+
 app.post('/api/admin/assistant', async (req, res) => {
   const { prompt } = req.body;
   if (!prompt) return res.status(400).json({ error: 'Missing prompt' });
@@ -452,6 +483,35 @@ app.get('/api/admin/notification-status', async (req, res) => {
     notifiableUsers: users.length,
     users: users.map(u => ({ email: u.email, name: u.name }))
   });
+});
+
+// ── Blog API Routes ─────────────────────────────────────────────────────────
+import { getBlogPosts, saveBlogPost, deleteBlogPost } from './storage.js';
+
+app.get('/api/blog', async (req, res) => {
+  const posts = await getBlogPosts();
+  res.json(posts);
+});
+
+app.post('/api/admin/blog', async (req, res) => {
+  const { title, content } = req.body;
+  if (!title || !content) return res.status(400).json({ error: 'Title and content required' });
+  const post = { id: Date.now().toString(), title, content };
+  await saveBlogPost(post);
+  res.json(post);
+});
+
+app.put('/api/admin/blog/:id', async (req, res) => {
+  const { title, content } = req.body;
+  if (!title || !content) return res.status(400).json({ error: 'Title and content required' });
+  const post = { id: req.params.id, title, content };
+  await saveBlogPost(post);
+  res.json(post);
+});
+
+app.delete('/api/admin/blog/:id', async (req, res) => {
+  await deleteBlogPost(req.params.id);
+  res.json({ success: true });
 });
 
 // Debug endpoint: shows live poll state and API key status
@@ -808,6 +868,26 @@ app.post('/api/sportybet/execution-log', authMiddleware, (req, res) => {
 app.delete('/api/sportybet/execution-log', authMiddleware, (req, res) => {
   writeSportybetLog([]);
   res.json({ success: true });
+});
+
+// Test automation with a manual bet link
+app.post('/api/sportybet/test-automation', authMiddleware, async (req, res) => {
+  const { betLink, stakeAmount } = req.body;
+  if (!betLink) return res.status(400).json({ error: 'betLink is required' });
+  
+  const stake = parseInt(stakeAmount) || 100;
+  
+  console.log(`\n🧪 Test automation request: ${betLink} — ₦${stake}`);
+  
+  // Run async — don't block the HTTP response (this takes 30-60s)
+  res.json({ success: true, message: 'Automation test started — check execution log for results', betLink, stakeAmount: stake });
+  
+  // Fire and forget
+  testAutomation(betLink, stake).then(result => {
+    console.log('🧪 Test automation result:', JSON.stringify(result));
+  }).catch(err => {
+    console.error('🧪 Test automation error:', err.message);
+  });
 });
 
 app.get('/api/sportybet/bots/stats', authMiddleware, (req, res) => {

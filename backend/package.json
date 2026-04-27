@@ -10,6 +10,7 @@
     "node-cron": "latest",
     "node-fetch": "latest",
     "pg": "^8.20.0",
+    "puppeteer": "^24.42.0",
     "resend": "^6.10.0"
   },
   "scripts": {

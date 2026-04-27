@@ -231,3 +231,50 @@ export function readSportybetLog() {
   try { return JSON.parse(readFileSync(SPORTYBET_LOG, 'utf-8')); } catch { return []; }
 }
 export function writeSportybetLog(data) { writeFileSync(SPORTYBET_LOG, JSON.stringify(data, null, 2), 'utf-8'); }
+
+// ── Blog Storage ────────────────────────────────────────────────────────────
+const BLOG_STORE = join(DATA_DIR, 'blog.json');
+
+export async function getBlogPosts() {
+  if (isUsingDB()) {
+    const { rows } = await query('SELECT * FROM blog_posts ORDER BY created_at DESC');
+    return rows;
+  }
+  try {
+    return JSON.parse(readFileSync(BLOG_STORE, 'utf-8')).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  } catch {
+    return [];
+  }
+}
+
+export async function saveBlogPost(post) {
+  const now = new Date().toISOString();
+  if (isUsingDB()) {
+    await query(
+      `INSERT INTO blog_posts (id, title, content, created_at) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, content = EXCLUDED.content`,
+      [post.id, post.title, post.content, post.created_at || now]
+    );
+    return;
+  }
+  let posts = [];
+  try { posts = JSON.parse(readFileSync(BLOG_STORE, 'utf-8')); } catch {}
+  const idx = posts.findIndex(p => p.id === post.id);
+  if (idx > -1) {
+    posts[idx] = { ...posts[idx], ...post };
+  } else {
+    posts.push({ ...post, created_at: post.created_at || now });
+  }
+  writeFileSync(BLOG_STORE, JSON.stringify(posts, null, 2), 'utf-8');
+}
+
+export async function deleteBlogPost(id) {
+  if (isUsingDB()) {
+    await query('DELETE FROM blog_posts WHERE id = $1', [id]);
+    return;
+  }
+  let posts = [];
+  try { posts = JSON.parse(readFileSync(BLOG_STORE, 'utf-8')); } catch {}
+  posts = posts.filter(p => p.id !== id);
+  writeFileSync(BLOG_STORE, JSON.stringify(posts, null, 2), 'utf-8');
+}
