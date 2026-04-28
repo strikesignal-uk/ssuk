@@ -117,7 +117,12 @@ export default function ChatBox() {
           {/* Header */}
           <div className="bg-[#0d1527] border-b border-white/5 px-4 py-3 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3">
-              <img src="/logo.png" alt="StrikeSignal" className="h-6 w-auto" />
+              <img 
+                src="/logo.png" 
+                alt="StrikeSignal" 
+                className="w-[100px] h-auto"
+                style={{ filter: 'drop-shadow(0 0 10px rgba(59,130,246,0.5))' }}
+              />
               <div className="pl-3 border-l border-white/10">
                 <div className="text-white text-sm font-bold">
                   {needsAgent ? 'Live Support — Support Team' : 'Support'}

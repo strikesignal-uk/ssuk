@@ -36,11 +36,24 @@ export default function Sidebar({ page, setPage, user, onLogout, liveCount, coll
         ${collapsed ? 'w-16' : 'w-56'}`}>
 
         {/* Logo */}
-        <div className="h-16 flex items-center px-4 border-b border-white/5 shrink-0">
+        <div className={`flex flex-col items-center justify-center py-6 border-b border-white/5 shrink-0 ${collapsed ? 'px-2' : 'px-4'}`}>
           {!collapsed ? (
-            <img src="/logo.png" alt="StrikeSignal" className="h-8 w-auto" />
+            <>
+              <img 
+                src="/logo.png" 
+                alt="StrikeSignal" 
+                className="w-[120px] h-auto mb-1"
+                style={{ filter: 'drop-shadow(0 0 10px rgba(59,130,246,0.5))' }}
+              />
+              <div className="text-[#3b82f6] text-[10px] font-medium tracking-wide">Live Goal Intelligence</div>
+            </>
           ) : (
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-sm font-black shrink-0 mx-auto">⚡</div>
+            <img 
+              src="/logo.png" 
+              alt="SS" 
+              className="w-12 h-auto"
+              style={{ filter: 'drop-shadow(0 0 10px rgba(59,130,246,0.5))' }}
+            />
           )}
         </div>
 

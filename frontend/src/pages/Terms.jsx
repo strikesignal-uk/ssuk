@@ -28,7 +28,12 @@ export default function Terms() {
       <nav className="fixed top-0 w-full z-50 bg-[#0a0f1e]/80 backdrop-blur-md border-b border-white/5">
         <div className="max-w-4xl mx-auto px-5 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center">
-            <img src="/logo.png" alt="StrikeSignal" className="h-8 w-auto" />
+            <img 
+              src="/logo.png" 
+              alt="StrikeSignal" 
+              className="w-[120px] md:w-[160px] h-auto"
+              style={{ filter: 'drop-shadow(0 0 10px rgba(59,130,246,0.5))' }}
+            />
           </Link>
           <div className="flex items-center gap-3">
             <Link to="/about" className="text-sm text-slate-400 hover:text-white transition-colors px-3">About</Link>

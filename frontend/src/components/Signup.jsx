@@ -33,22 +33,20 @@ export default function Signup({ onAuth }) {
   return (
     <div className="min-h-screen bg-slate-950 flex">
       {/* Left panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-900 via-blue-950 to-violet-950 flex-col justify-between p-12 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-900 via-blue-950 to-violet-950 flex-col justify-center items-center p-12 relative overflow-hidden">
         <div className="absolute top-20 left-20 w-72 h-72 bg-blue-600/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-20 right-10 w-64 h-64 bg-violet-600/20 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10">
-          <div className="flex items-center mb-16">
-            <img src="/logo.png" alt="StrikeSignal" className="h-12 w-auto" />
-          </div>
-          <h1 className="text-4xl font-extrabold text-white leading-tight mb-4">
-            Start betting<br />
-            <span className="bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent">smarter today</span>
-          </h1>
-          <p className="text-slate-400 text-lg">Join thousands using AI-powered signals to gain an edge on live football markets.</p>
+        <div className="relative z-10 flex flex-col items-center text-center">
+          <img 
+            src="/logo.png" 
+            alt="StrikeSignal" 
+            className="w-[140px] md:w-[180px] h-auto mb-2"
+          />
+          <p className="text-[#3b82f6] text-sm font-medium">Live Goal Intelligence</p>
         </div>
 
-        <div className="relative z-10 grid grid-cols-2 gap-3">
+        <div className="relative z-10 grid grid-cols-2 gap-3 mt-8 text-left">
           {[
             { icon: '🎯', val: 'Real-time', label: 'Signal detection' },
             { icon: '🤖', val: 'AI-powered', label: 'Predictions' },
@@ -67,8 +65,13 @@ export default function Signup({ onAuth }) {
       {/* Right panel — form */}
       <div className="flex-1 flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
-          <div className="flex lg:hidden justify-center mb-8">
-            <img src="/logo.png" alt="StrikeSignal" className="h-10 w-auto" />
+          <div className="flex lg:hidden flex-col items-center justify-center mb-8 text-center">
+            <img 
+              src="/logo.png" 
+              alt="StrikeSignal" 
+              className="w-[140px] h-auto mb-2"
+            />
+            <p className="text-[#3b82f6] text-xs font-medium mt-0.5">Live Goal Intelligence</p>
           </div>
 
           <h2 className="text-2xl font-bold text-white mb-1">Create account</h2>

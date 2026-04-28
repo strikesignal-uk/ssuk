@@ -28,8 +28,13 @@ function AdminLogin({ onAuth }) {
   return (
     <div className="min-h-screen bg-[#0a0f1e] flex items-center justify-center p-5">
       <form onSubmit={submit} className="bg-[#0d1527] border border-white/5 rounded-2xl p-8 w-full max-w-sm">
-        <div className="flex flex-col items-center gap-4 mb-6">
-          <img src="/logo.png" alt="StrikeSignal" className="h-10 w-auto" />
+        <div className="flex flex-col items-center gap-2 mb-6 text-center">
+          <img 
+            src="/logo.png" 
+            alt="StrikeSignal" 
+            className="w-[140px] h-auto mb-2"
+          />
+          <p className="text-[#3b82f6] text-[10px] font-medium tracking-wide">Admin Access</p>
         </div>
         <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Admin Password</label>
         <input type="password" value={pwd} onChange={e => setPwd(e.target.value)} required
@@ -1070,8 +1075,14 @@ export default function AdminPanel() {
     <div className="min-h-screen bg-[#0a0f1e] text-white flex" style={{ fontFamily: "'DM Sans', Inter, sans-serif" }}>
       {/* Admin sidebar */}
       <aside className="w-56 bg-[#0d1527] border-r border-white/5 flex flex-col shrink-0">
-        <div className="h-16 flex items-center justify-center px-4 border-b border-white/5">
-          <img src="/logo.png" alt="SS Admin" className="h-6 w-auto" />
+        <div className="flex flex-col items-center justify-center py-6 border-b border-white/5">
+          <img 
+            src="/logo.png" 
+            alt="SS Admin" 
+            className="w-[100px] h-auto mb-1"
+            style={{ filter: 'drop-shadow(0 0 10px rgba(59,130,246,0.5))' }}
+          />
+          <div className="text-[#3b82f6] text-[10px] font-medium tracking-wide">Admin Panel</div>
         </div>
         <nav className="flex-1 py-4 px-2 space-y-0.5">
           {TABS.map(t => (

@@ -5,7 +5,12 @@ const Nav = () => (
   <nav className="fixed top-0 w-full z-50 bg-[#0a0f1e]/80 backdrop-blur-md border-b border-white/5">
     <div className="max-w-5xl mx-auto px-5 h-16 flex items-center justify-between">
       <Link to="/" className="flex items-center">
-        <img src="/logo.png" alt="StrikeSignal" className="h-8 w-auto" />
+        <img 
+          src="/logo.png" 
+          alt="StrikeSignal" 
+          className="w-[120px] md:w-[160px] h-auto"
+          style={{ filter: 'drop-shadow(0 0 10px rgba(59,130,246,0.5))' }}
+        />
       </Link>
       <div className="flex items-center gap-3">
         <Link to="/terms" className="text-sm text-slate-400 hover:text-white transition-colors px-3 hidden md:block">Terms</Link>
@@ -86,10 +91,15 @@ export default function About() {
       <section className="py-12">
         <div className="max-w-4xl mx-auto px-5">
           <div className="bg-[#0d1527] border border-blue-500/20 rounded-3xl p-8 md:p-12">
-            <div className="flex items-center gap-4 mb-6">
-              <img src="/logo.png" alt="StrikeSignal" className="h-8 w-auto" />
-              <h2 className="text-xl font-black">is a product of Izent Global Ltd</h2>
+            <div className="flex items-center mb-4">
+              <img 
+                src="/logo.png" 
+                alt="StrikeSignal" 
+                className="w-[120px] md:w-[160px] h-auto"
+                style={{ filter: 'drop-shadow(0 0 10px rgba(59,130,246,0.5))' }}
+              />
             </div>
+            <h2 className="text-xl font-black mb-6">is a product of Izent Global Ltd</h2>
             <div className="space-y-4 text-slate-400 text-sm leading-relaxed mb-8">
               <p>Izent Global Ltd is a technology company registered in England and Wales (United Kingdom) and Nigeria (Corporate Affairs Commission).</p>
               <p>We build digital products at the intersection of technology, finance, and sports — serving users across the UK and Nigeria.</p>

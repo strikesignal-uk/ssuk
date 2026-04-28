@@ -53,8 +53,13 @@ export default function ResetPassword() {
 
       <div className="w-full max-w-sm relative z-10">
         {/* Logo */}
-        <div className="flex justify-center mb-10">
-          <img src="/logo.png" alt="StrikeSignal" className="h-10 w-auto" />
+        <div className="flex flex-col items-center mb-10 text-center">
+          <img 
+            src="/logo.png" 
+            alt="StrikeSignal" 
+            className="w-[140px] md:w-[180px] h-auto mb-2"
+          />
+          <p className="text-[#3b82f6] text-xs font-medium mt-0.5">Live Goal Intelligence</p>
         </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8">
