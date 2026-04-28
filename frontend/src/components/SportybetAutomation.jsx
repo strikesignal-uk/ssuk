@@ -343,6 +343,8 @@ export default function SportybetAutomation({ status, isPro }) {
           )}
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }
