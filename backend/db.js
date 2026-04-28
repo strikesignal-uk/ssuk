@@ -100,6 +100,30 @@ export async function initDB() {
     `);
     await query(`ALTER TABLE blog_posts ADD COLUMN IF NOT EXISTS image TEXT;`);
 
+    // Subscriptions
+    await query(`
+      CREATE TABLE IF NOT EXISTS subscriptions (
+        user_id TEXT PRIMARY KEY,
+        plan TEXT NOT NULL,
+        billing_cycle TEXT,
+        activated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        expires_at TIMESTAMPTZ,
+        active BOOLEAN DEFAULT true
+      );
+    `);
+
+    // Pending Transactions
+    await query(`
+      CREATE TABLE IF NOT EXISTS pending_transactions (
+        tx_ref TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        plan TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        status TEXT NOT NULL DEFAULT 'pending'
+      );
+    `);
+
     console.log('[DB] PostgreSQL connected and tables ready');
   } catch (err) {
     console.error('[DB] Init error:', err.message);

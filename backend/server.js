@@ -20,19 +20,24 @@ import {
   readSportybet,
   writeSportybet,
   readSportybetLog,
-  writeSportybetLog
+  writeSportybetLog,
+  getAllSportybetConfigs
 } from './storage.js';
 import { getSettings, updateSettings } from './settings.js';
 import { loginSportybet, fetchBalance } from "./sportybetScraper.js";
 import { createUser, loginUser, verifyToken, getAllUsers, updateNotifications, getNotifiableUsers, getUserById, updateProfile, createPasswordResetToken, resetPassword, adminUpdateUser, adminSetUserStatus, adminDeleteUser } from './users.js';
 import fs from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import { sendSignalNotification, sendWelcomeEmail, sendTestEmail, sendPasswordResetEmail, sendBroadcastEmail } from './email.js';
 import { sendTelegramBroadcast } from './telegram.js';
 import { askAdminAssistant } from './chat.js';
 import { processSignalForBots, testAutomation } from './automationEngine.js';
 import { initDB } from './db.js';
+import { initiatePayment, verifyPayment, handleWebhook, getUserSubscription, manualVerifyByTxRef } from './subscription.js';
 
-dotenv.config();
+const __dirname = dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: join(__dirname, '.env') });
 const app = express();
 const PORT = process.env.PORT || 3001;
 app.use(cors());
@@ -142,12 +147,34 @@ app.get('/api/matches/today', async (req, res) => {
   }
 });
 
-app.get('/api/signals/live', (req, res) => {
+app.get('/api/signals/live', async (req, res) => {
+  const userId = req.query.userId;
+  let isPro = false;
+
+  if (userId) {
+    const sub = await getUserSubscription(userId);
+    isPro = sub.plan === "pro" && sub.active;
+  }
+
   // Ensure every signal has a sportybet field (null if missing)
-  const enriched = liveSignals.map(s => ({
-    ...s,
-    sportybet: s.sportybet || null,
-  }));
+  const enriched = liveSignals.map(s => {
+    let signal = {
+      ...s,
+      sportybet: s.sportybet || null,
+    };
+
+    if (signal.confidence === 'high' && !isPro) {
+      signal = {
+        ...signal,
+        locked: true,
+        betType: "🔒 Upgrade to Pro",
+        betLink: null,
+        lockReason: "High confidence signals are Pro only"
+      };
+    }
+    
+    return signal;
+  });
   res.json(enriched);
 });
 
@@ -610,7 +637,6 @@ app.get('/api/debug/izentbet', async (req, res) => {
 
 // ── Trade Log ─────────────────────────────────────────────────────────────────
 import { existsSync, readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
 
 const TRADES_PATH = join(process.env.RAILWAY_VOLUME_MOUNT_PATH
   ? join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'strikesignal')
@@ -671,7 +697,7 @@ function maskPhone(phone) {
 }
 
 app.get('/api/sportybet/status', authMiddleware, (req, res) => {
-  const sb = readSportybet();
+  const sb = readSportybet(req.user.id);
   if (!sb.connected) return res.json({ connected: false, balance: 0 });
 
   res.json({
@@ -704,7 +730,7 @@ app.post('/api/sportybet/connect', authMiddleware, async (req, res) => {
   const encoded = Buffer.from(phone + ":" + password).toString("base64");
   const sessionKey = "sprt_" + Buffer.from(phone).toString("base64").slice(0, 8);
 
-  const sb = readSportybet();
+  const sb = readSportybet(req.user.id);
   sb.connected = true;
   sb.phone = phone;
   sb.encodedCredentials = encoded;
@@ -714,7 +740,7 @@ app.post('/api/sportybet/connect', authMiddleware, async (req, res) => {
   sb.lastBalanceSync = new Date().toISOString();
   sb.connectedAt = new Date().toISOString();
   
-  writeSportybet(sb);
+  writeSportybet(req.user.id, sb);
 
   res.json({
     success: true,
@@ -728,7 +754,7 @@ app.post('/api/sportybet/connect', authMiddleware, async (req, res) => {
 });
 
 app.get('/api/sportybet/balance', authMiddleware, async (req, res) => {
-  const sb = readSportybet();
+  const sb = readSportybet(req.user.id);
   if (!sb.connected) return res.json({ balance: 0, balanceFormatted: "₦0.00" });
 
   const lastSync = new Date(sb.lastBalanceSync || 0);
@@ -751,7 +777,7 @@ app.get('/api/sportybet/balance', authMiddleware, async (req, res) => {
     sb.balance = result.balance;
     sb.balanceFormatted = result.balanceFormatted;
     sb.lastBalanceSync = result.fetchedAt;
-    writeSportybet(sb);
+    writeSportybet(req.user.id, sb);
     return res.json({
       balance: sb.balance,
       balanceFormatted: sb.balanceFormatted,
@@ -769,7 +795,7 @@ app.get('/api/sportybet/balance', authMiddleware, async (req, res) => {
 });
 
 app.post('/api/sportybet/disconnect', authMiddleware, (req, res) => {
-  const sb = readSportybet();
+  const sb = readSportybet(req.user.id);
   sb.connected = false;
   sb.phone = null;
   sb.encodedCredentials = null;
@@ -778,7 +804,7 @@ app.post('/api/sportybet/disconnect', authMiddleware, (req, res) => {
   sb.balanceFormatted = "₦0.00";
   sb.lastBalanceSync = null;
   sb.connectedAt = null;
-  writeSportybet(sb);
+  writeSportybet(req.user.id, sb);
 
   if (fs.existsSync('./sportybet-session.json')) {
     fs.unlinkSync('./sportybet-session.json');
@@ -788,7 +814,7 @@ app.post('/api/sportybet/disconnect', authMiddleware, (req, res) => {
 });
 
 app.get('/api/sportybet/bots', authMiddleware, (req, res) => {
-  const sb = readSportybet();
+  const sb = readSportybet(req.user.id);
   res.json(sb.bots || []);
 });
 
@@ -796,50 +822,50 @@ app.post('/api/sportybet/bots', authMiddleware, (req, res) => {
   const bot = req.body;
   bot.id = Date.now().toString();
   bot.active = false;
-  const sb = readSportybet();
+  const sb = readSportybet(req.user.id);
   if (!sb.bots) sb.bots = [];
   sb.bots.push(bot);
-  writeSportybet(sb);
+  writeSportybet(req.user.id, sb);
   res.json(bot);
 });
 
 app.patch('/api/sportybet/bots/:id/toggle', authMiddleware, (req, res) => {
   const { id } = req.params;
   const { active } = req.body;
-  const sb = readSportybet();
+  const sb = readSportybet(req.user.id);
   if (!sb.bots) sb.bots = [];
   const bot = sb.bots.find(b => b.id === id);
   if (!bot) return res.status(404).json({ error: 'Bot not found' });
   bot.active = active;
-  writeSportybet(sb);
+  writeSportybet(req.user.id, sb);
   res.json(bot);
 });
 
 app.put('/api/sportybet/bots/:id', authMiddleware, (req, res) => {
   const { id } = req.params;
   const updatedBot = req.body;
-  const sb = readSportybet();
+  const sb = readSportybet(req.user.id);
   if (!sb.bots) sb.bots = [];
   const idx = sb.bots.findIndex(b => b.id === id);
   if (idx === -1) return res.status(404).json({ error: 'Bot not found' });
   sb.bots[idx] = { ...sb.bots[idx], ...updatedBot, id }; // ensure ID is preserved
-  writeSportybet(sb);
+  writeSportybet(req.user.id, sb);
   res.json(sb.bots[idx]);
 });
 
 app.delete('/api/sportybet/bots/:id', authMiddleware, (req, res) => {
   const { id } = req.params;
-  const sb = readSportybet();
+  const sb = readSportybet(req.user.id);
   if (!sb.bots) sb.bots = [];
   const initialLength = sb.bots.length;
   sb.bots = sb.bots.filter(b => b.id !== id);
   if (sb.bots.length === initialLength) return res.status(404).json({ error: 'Bot not found' });
-  writeSportybet(sb);
+  writeSportybet(req.user.id, sb);
   res.json({ success: true });
 });
 
 app.get('/api/sportybet/execution-log', authMiddleware, (req, res) => {
-  const logs = readSportybetLog();
+  const logs = readSportybetLog(req.user.id);
   const typeFilter = req.query.type;
   let filtered = logs;
   if (typeFilter) {
@@ -858,15 +884,15 @@ app.get('/api/sportybet/execution-log', authMiddleware, (req, res) => {
 
 app.post('/api/sportybet/execution-log', authMiddleware, (req, res) => {
   const entry = req.body;
-  const logs = readSportybetLog();
+  const logs = readSportybetLog(req.user.id);
   logs.unshift(entry);
   const trimmed = logs.slice(0, 200);
-  writeSportybetLog(trimmed);
+  writeSportybetLog(req.user.id, trimmed);
   res.json(entry);
 });
 
 app.delete('/api/sportybet/execution-log', authMiddleware, (req, res) => {
-  writeSportybetLog([]);
+  writeSportybetLog(req.user.id, []);
   res.json({ success: true });
 });
 
@@ -883,7 +909,7 @@ app.post('/api/sportybet/test-automation', authMiddleware, async (req, res) => {
   res.json({ success: true, message: 'Automation test started — check execution log for results', betLink, stakeAmount: stake });
   
   // Fire and forget
-  testAutomation(betLink, stake).then(result => {
+  testAutomation(req.user.id, betLink, stake).then(result => {
     console.log('🧪 Test automation result:', JSON.stringify(result));
   }).catch(err => {
     console.error('🧪 Test automation error:', err.message);
@@ -891,8 +917,8 @@ app.post('/api/sportybet/test-automation', authMiddleware, async (req, res) => {
 });
 
 app.get('/api/sportybet/bots/stats', authMiddleware, (req, res) => {
-  const sb = readSportybet();
-  const logs = readSportybetLog();
+  const sb = readSportybet(req.user.id);
+  const logs = readSportybetLog(req.user.id);
   const bots = sb.bots || [];
   const stats = {};
 
@@ -1039,24 +1065,64 @@ app.post('/api/ai-chat/bet9ja-build', async (req, res) => {
 
 cron.schedule("*/30 * * * *", async () => {
   try {
-    const sb = readSportybet();
-    if (!sb.connected) return;
+    const configs = getAllSportybetConfigs();
+    for (const config of configs) {
+      const sb = config.data;
+      if (!sb.connected) continue;
 
-    console.log("🔄 Auto-syncing Sportybet balance...");
-    const decoded = Buffer.from(sb.encodedCredentials, "base64").toString("utf8");
-    const [phone, pwd] = decoded.split(":");
-    const result = await fetchBalance(phone, pwd);
+      console.log(`🔄 Auto-syncing Sportybet balance for user ${config.userId}...`);
+      const decoded = Buffer.from(sb.encodedCredentials, "base64").toString("utf8");
+      const [phone, pwd] = decoded.split(":");
+      const result = await fetchBalance(phone, pwd);
 
-    if (result.success) {
-      sb.balance = result.balance;
-      sb.balanceFormatted = result.balanceFormatted;
-      sb.lastBalanceSync = result.fetchedAt;
-      writeSportybet(sb);
-      console.log("✅ Balance synced:", result.balanceFormatted);
+      if (result.success) {
+        sb.balance = result.balance;
+        sb.balanceFormatted = result.balanceFormatted;
+        sb.lastBalanceSync = result.fetchedAt;
+        writeSportybet(config.userId, sb);
+        console.log(`✅ Balance synced for ${config.userId}:`, result.balanceFormatted);
+      }
     }
   } catch (err) {
     console.error("❌ Auto sync failed:", err.message);
   }
+});
+
+// ─── Subscription Endpoints ──────────────────────────────────────────────────
+
+app.post('/api/subscription/initiate', async (req, res) => {
+  const { plan, userId, email, name } = req.body;
+  if (!plan || !userId || !email) return res.status(400).json({ error: 'Missing required fields' });
+  const result = await initiatePayment({ id: userId, email, name }, plan);
+  if (result.success) {
+    res.json(result);
+  } else {
+    res.status(500).json(result);
+  }
+});
+
+app.post('/api/subscription/webhook', async (req, res) => {
+  const signature = req.headers['verif-hash'];
+  if (!signature) return res.status(400).end();
+  
+  // Flutterwave requires a 200 OK regardless of processing result
+  res.status(200).end();
+  
+  // Process asynchronously
+  await handleWebhook(req.body, signature);
+});
+
+app.get('/api/subscription/status', async (req, res) => {
+  const { userId } = req.query;
+  if (!userId) return res.status(400).json({ error: 'Missing userId' });
+  const sub = await getUserSubscription(userId);
+  res.json(sub);
+});
+
+app.post('/api/subscription/verify/:txRef', async (req, res) => {
+  const { txRef } = req.params;
+  const result = await manualVerifyByTxRef(txRef);
+  res.json(result);
 });
 
 app.listen(PORT, () => {

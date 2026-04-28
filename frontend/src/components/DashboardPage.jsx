@@ -157,11 +157,12 @@ export default function DashboardPage({ user }) {
   const filtered = useMemo(() => {
     const cutoff = getCutoff(period, customRange);
     const end = period === 'custom' ? getCustomEnd(customRange) : Date.now();
-    return allSignals.filter(s => {
-      const t = new Date(s.created_at).getTime();
+    const sourceData = user?.email === 'kodedmag@gmail.com' ? allSignals : trades;
+    return sourceData.filter(s => {
+      const t = new Date(s.created_at || s.date).getTime();
       return t >= cutoff && t <= end;
     });
-  }, [allSignals, period, customRange]);
+  }, [allSignals, trades, period, customRange, user?.email]);
 
   // ── Calculated stats ────────────────────────────────────────────────────
   const stats = useMemo(() => {

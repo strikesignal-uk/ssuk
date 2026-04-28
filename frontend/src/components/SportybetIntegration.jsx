@@ -4,7 +4,7 @@ const API = import.meta.env.VITE_API_URL;
 const token = () => localStorage.getItem('ss_token');
 const hdrs = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` });
 
-export default function SportybetIntegration() {
+export default function SportybetIntegration({ status, onUpdate, isPro }) {
   const [connected, setConnected] = useState(false);
   const [phone, setPhone] = useState("");
   const [maskedPhone, setMaskedPhone] = useState("");
@@ -96,8 +96,19 @@ export default function SportybetIntegration() {
           Connect your Sportybet account to enable one-click betting and automation bots.
         </p>
       </div>
-
-      {!connected ? (
+      
+      {!isPro ? (
+        <div className="bg-[#1a2744] border border-[#1e3a8a] rounded-2xl p-8 text-center space-y-4">
+          <div className="text-4xl">💎</div>
+          <h3 className="text-xl font-black text-white">Upgrade to Pro</h3>
+          <p className="text-slate-400 text-sm max-w-sm mx-auto">
+            Sportybet integration and automated betting is exclusively available for Pro subscribers.
+          </p>
+          <a href="/pricing" className="inline-block bg-gradient-to-r from-blue-600 to-blue-400 text-white font-black px-6 py-3 rounded-xl mt-4">
+            View Pro Plans
+          </a>
+        </div>
+      ) : !connected ? (
         <div className="space-y-6">
           <div className="bg-[#1a2744] border border-[#1e3a8a] rounded-2xl p-6 shadow-xl">
             <div className="space-y-5">

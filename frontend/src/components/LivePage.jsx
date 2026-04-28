@@ -86,7 +86,30 @@ function SignalCard({ signal, onRetryConvert }) {
       )}
 
       {/* Booking codes / Bet Now section */}
-      {(signal.sportybet && signal.sportybet.betLink) ? (
+      {signal.locked ? (
+        <div className="relative border-t border-white/5 bg-[#0a0f1e]/60 p-6 overflow-hidden">
+          {/* Blurred fake content */}
+          <div className="filter blur-[4px] opacity-40 select-none">
+            <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-2">Book This Bet</div>
+            <div className="flex gap-2">
+              <div className="flex-1 h-[44px] bg-green-600 rounded-xl"></div>
+              <div className="flex-1 h-[44px] bg-emerald-600 rounded-xl"></div>
+            </div>
+            <div className="h-[14px] bg-slate-700 w-2/3 mx-auto mt-2 rounded"></div>
+          </div>
+          
+          {/* Lock Overlay */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-blue-900/15 border border-blue-500/50">
+            <div className="text-3xl mb-1">🔒</div>
+            <p className="text-blue-100 font-bold text-sm mb-3 text-center px-4">High confidence signals are Pro only</p>
+            <button 
+              onClick={(e) => { e.stopPropagation(); window.location.href = '/pricing'; }}
+              className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded-xl transition-colors text-sm shadow-[0_0_15px_rgba(37,99,235,0.4)]">
+              Unlock with Pro →
+            </button>
+          </div>
+        </div>
+      ) : (signal.sportybet && signal.sportybet.betLink) ? (
         /* ── Has Sportybet link — show Bet Now ────────────────────────────────── */
         <div className="border-t border-white/5 bg-[#0a0f1e]/60 px-4 py-3">
           <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-2">Book This Bet</div>

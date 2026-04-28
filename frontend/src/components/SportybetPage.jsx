@@ -6,9 +6,10 @@ import SportybetIntegration from './SportybetIntegration.jsx';
 const API = import.meta.env.VITE_API_URL;
 const token = () => localStorage.getItem('ss_token');
 
-export default function SportybetPage() {
+export default function SportybetPage({ user }) {
   const [tab, setTab] = useState('account');
   const [status, setStatus] = useState({ connected: false, phone: '' });
+  const [isPro, setIsPro] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const fetchStatus = async () => {
@@ -20,6 +21,13 @@ export default function SportybetPage() {
         const data = await res.json();
         setStatus(data);
         localStorage.setItem('ss_sportybet_connected', data.connected ? 'true' : 'false');
+      }
+      if (user) {
+        const subRes = await fetch(`${API}/api/subscription/status?userId=${user.id}`);
+        if (subRes.ok) {
+          const subData = await subRes.json();
+          setIsPro(subData.plan === 'pro' && subData.active);
+        }
       }
     } catch {
       // silent
@@ -78,8 +86,8 @@ export default function SportybetPage() {
       ) : (
         <>
           {tab === 'account' && <SportybetAccount status={status} />}
-          {tab === 'automation' && <SportybetAutomation status={status} />}
-          {tab === 'integration' && <SportybetIntegration status={status} onUpdate={fetchStatus} />}
+          {tab === 'automation' && <SportybetAutomation status={status} isPro={isPro} />}
+          {tab === 'integration' && <SportybetIntegration status={status} onUpdate={fetchStatus} isPro={isPro} />}
         </>
       )}
     </div>

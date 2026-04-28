@@ -40,6 +40,17 @@ export default function SettingsPage({ user, onUserUpdate }) {
   const token = localStorage.getItem('ss_token');
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
 
+  const [sub, setSub] = useState({ plan: 'free', active: false });
+
+  useEffect(() => {
+    if (user?.id) {
+      fetch(`${API}/api/subscription/status?userId=${user.id}`)
+        .then(res => res.json())
+        .then(data => setSub(data))
+        .catch(console.error);
+    }
+  }, [user]);
+
   // Profile
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
@@ -80,6 +91,28 @@ export default function SettingsPage({ user, onUserUpdate }) {
         <h1 className="text-xl font-black text-white">Settings</h1>
         <p className="text-slate-500 text-sm">Manage your account and integrations</p>
       </div>
+
+      {/* Subscription */}
+      <Section title="Subscription">
+        {sub.plan === 'pro' && sub.active ? (
+          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-white font-bold text-lg">Current Plan: PRO ✅</span>
+              <span className="bg-emerald-500/20 text-emerald-400 text-xs font-black px-2 py-1 rounded uppercase tracking-wider">{sub.billingCycle}</span>
+            </div>
+            {sub.expiresAt && <div className="text-slate-400 text-sm mb-4">Next renewal / Expires: {new Date(sub.expiresAt).toLocaleDateString()}</div>}
+            <button className="text-red-400 text-sm hover:underline font-medium">Cancel subscription</button>
+          </div>
+        ) : (
+          <div className="bg-blue-600/10 border border-blue-500/20 rounded-xl p-4">
+            <div className="text-white font-bold text-lg mb-2">Current Plan: FREE</div>
+            <p className="text-slate-400 text-sm mb-4">Upgrade to Pro to unlock High Confidence signals, Automation bots, and all international leagues.</p>
+            <button onClick={() => window.location.href = '/pricing'} className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all">
+              Upgrade to Pro →
+            </button>
+          </div>
+        )}
+      </Section>
 
       {/* Profile */}
       <Section title="My Profile">

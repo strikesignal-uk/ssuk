@@ -21,6 +21,9 @@ import About from './pages/About.jsx';
 import Contact from './pages/Contact.jsx';
 import AdminPanel from './pages/AdminPanel.jsx';
 import Blog from './pages/Blog.jsx';
+import Pricing from './pages/Pricing.jsx';
+import PaymentSuccess from './pages/PaymentSuccess.jsx';
+import PaymentFailed from './pages/PaymentFailed.jsx';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -102,7 +105,7 @@ function AppShell({ user, onLogout, onUserUpdate }) {
           {page === 'live' && <LivePage signals={signals} liveMatches={liveMatches} onRefresh={() => window.location.reload()} />}
           {page === 'tradelog' && <TradeLog />}
           {page === 'schedule' && <Schedule />}
-          {page === 'sportybet' && <SportybetPage />}
+          {page === 'sportybet' && <SportybetPage user={user} />}
           {page === 'results' && (
             <Results results={results} stats={stats} period={period} onPeriodChange={setPeriod} />
           )}
@@ -116,11 +119,10 @@ function AppShell({ user, onLogout, onUserUpdate }) {
           {[
             { key: 'dashboard', icon: '📊', label: 'Dashboard' },
             { key: 'live',      icon: '⚡', label: 'Live' },
-            { key: 'tradelog',  icon: '🕐', label: 'Trade Log' },
             { key: 'schedule',  icon: '📅', label: 'Schedule' },
             { key: 'settings',  icon: '⚙️',  label: 'Settings' },
             { key: 'blog',      icon: '📝', label: 'Blog' },
-            { key: 'sportybet', icon: '⚽', label: 'Sportybet' },
+            { key: 'sportybet', icon: '🤖', label: 'Automation' },
           ].map(n => (
             <button key={n.key} onClick={() => nav(n.key)}
               className={`flex-1 flex flex-col items-center justify-center py-2 gap-1 transition-all ${
@@ -172,6 +174,9 @@ export default function App() {
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/admin" element={<AdminPanel />} />
+          <Route path="/pricing" element={<Pricing user={user} />} />
+          <Route path="/payment/success" element={<PaymentSuccess />} />
+          <Route path="/payment/failed" element={<PaymentFailed />} />
           <Route path="/dashboard" element={loggedIn ? <AppShell user={user} onLogout={handleLogout} onUserUpdate={handleUserUpdate} /> : <Navigate to="/login" />} />
           <Route path="*" element={loggedIn ? <AppShell user={user} onLogout={handleLogout} onUserUpdate={handleUserUpdate} /> : <Navigate to="/" />} />
         </Routes>

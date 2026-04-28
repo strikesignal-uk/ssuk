@@ -5,7 +5,7 @@ const API = import.meta.env.VITE_API_URL || '';
 const token = () => localStorage.getItem('ss_token');
 const hdrs = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` });
 
-export default function SportybetAutomation({ status }) {
+export default function SportybetAutomation({ status, isPro }) {
   const [bots, setBots] = useState([]);
   const [logs, setLogs] = useState([]);
   const [logStats, setLogStats] = useState({ success: 0, error: 0, total: 0 });
@@ -167,55 +167,69 @@ export default function SportybetAutomation({ status }) {
         </div>
       </div>
 
-      {/* RECOMMENDED */}
-      <div className="space-y-4">
-        <div>
-          <h2 className="text-sm font-black text-white uppercase tracking-widest mb-1 flex items-center gap-2">⭐ StrikeSignal Recommended</h2>
-          <p className="text-slate-500 text-xs sm:text-sm">One-click bot setups based on our best-performing signal configs</p>
+      {/* RECOMMENDED & BOTS */}
+      {!isPro ? (
+        <div className="bg-[#1a2744] border border-[#1e3a8a] rounded-2xl p-8 text-center space-y-4">
+          <div className="text-4xl">💎</div>
+          <h3 className="text-xl font-black text-white">Upgrade to Pro</h3>
+          <p className="text-slate-400 text-sm max-w-sm mx-auto">
+            Automated bot execution is a Pro-only feature. Upgrade your subscription to start creating and running bots.
+          </p>
+          <a href="/pricing" className="inline-block bg-gradient-to-r from-blue-600 to-blue-400 text-white font-black px-6 py-3 rounded-xl mt-4">
+            View Pro Plans
+          </a>
         </div>
-        <div className="grid sm:grid-cols-2 gap-4">
-          <div className="bg-[#0d1527] border-l-4 border-l-emerald-500 border-y border-r border-y-white/5 border-r-white/5 rounded-r-2xl rounded-l-md p-5 flex flex-col h-full relative overflow-hidden">
-            <div className="absolute top-0 right-0 bg-gradient-to-l from-emerald-500/10 to-transparent w-32 h-full" />
-            <div className="relative z-10 flex-1">
-              <div className="flex flex-wrap items-center gap-2 mb-2">
-                <h3 className="font-black text-white text-sm">SS EARLY EDGE (O1.5)</h3>
-                <span className="bg-emerald-500/10 text-emerald-400 text-[9px] font-black px-1.5 py-0.5 rounded border border-emerald-500/20">RECOMMENDED</span>
+      ) : (
+        <>
+          {/* RECOMMENDED */}
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-sm font-black text-white uppercase tracking-widest mb-1 flex items-center gap-2">⭐ StrikeSignal Recommended</h2>
+              <p className="text-slate-500 text-xs sm:text-sm">One-click bot setups based on our best-performing signal configs</p>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="bg-[#0d1527] border-l-4 border-l-emerald-500 border-y border-r border-y-white/5 border-r-white/5 rounded-r-2xl rounded-l-md p-5 flex flex-col h-full relative overflow-hidden">
+                <div className="absolute top-0 right-0 bg-gradient-to-l from-emerald-500/10 to-transparent w-32 h-full" />
+                <div className="relative z-10 flex-1">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <h3 className="font-black text-white text-sm">SS EARLY EDGE (O1.5)</h3>
+                    <span className="bg-emerald-500/10 text-emerald-400 text-[9px] font-black px-1.5 py-0.5 rounded border border-emerald-500/20">RECOMMENDED</span>
+                  </div>
+                  <div className="mb-3"><span className="bg-blue-500/20 text-blue-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-500/30">EARLY EDGE</span></div>
+                  <div className="text-xs font-bold text-slate-400 mb-3 tracking-wide">2% bankroll · Over 1.5 · all leagues</div>
+                  <p className="text-slate-300 text-xs mb-4">Early-window signals expecting 2+ goals between 55'-70'. AI-powered placement via Gemini 2.5 Pro.</p>
+                </div>
+                <button onClick={openEarlyEdgePreset} className="relative z-10 w-full bg-[#16a34a] hover:bg-emerald-600 text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/20">+ Use this preset</button>
               </div>
-              <div className="mb-3"><span className="bg-blue-500/20 text-blue-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-500/30">EARLY EDGE</span></div>
-              <div className="text-xs font-bold text-slate-400 mb-3 tracking-wide">2% bankroll · Over 1.5 · all leagues</div>
-              <p className="text-slate-300 text-xs mb-4">Early-window signals expecting 2+ goals between 55'-70'. AI-powered placement via Gemini 2.5 Pro.</p>
+              <div className="bg-[#0d1527] border-l-4 border-l-amber-500 border-y border-r border-y-white/5 border-r-white/5 rounded-r-2xl rounded-l-md p-5 flex flex-col h-full relative overflow-hidden">
+                <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500/10 to-transparent w-32 h-full" />
+                <div className="relative z-10 flex-1">
+                  <h3 className="font-black text-white text-sm mb-2">SS STRIKESIGNAL ORIGINAL (O1.5)</h3>
+                  <div className="mb-3"><span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">SS ORIGINAL</span></div>
+                  <div className="text-xs font-bold text-slate-400 mb-3 tracking-wide">2% bankroll · Over 1.5 · all leagues</div>
+                  <p className="text-slate-300 text-xs mb-4">Late-window config — minute 65-85 high confidence entries. Full bet held to full time.</p>
+                </div>
+                <button onClick={openOriginalPreset} className="relative z-10 w-full bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow-lg shadow-amber-500/20">+ Use this preset</button>
+              </div>
             </div>
-            <button onClick={openEarlyEdgePreset} className="relative z-10 w-full bg-[#16a34a] hover:bg-emerald-600 text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/20">+ Use this preset</button>
+            <p className="text-[11px] text-slate-600 italic">Starting points based on live data — not financial advice.</p>
           </div>
-          <div className="bg-[#0d1527] border-l-4 border-l-amber-500 border-y border-r border-y-white/5 border-r-white/5 rounded-r-2xl rounded-l-md p-5 flex flex-col h-full relative overflow-hidden">
-            <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500/10 to-transparent w-32 h-full" />
-            <div className="relative z-10 flex-1">
-              <h3 className="font-black text-white text-sm mb-2">SS STRIKESIGNAL ORIGINAL (O1.5)</h3>
-              <div className="mb-3"><span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">SS ORIGINAL</span></div>
-              <div className="text-xs font-bold text-slate-400 mb-3 tracking-wide">2% bankroll · Over 1.5 · all leagues</div>
-              <p className="text-slate-300 text-xs mb-4">Late-window config — minute 65-85 high confidence entries. Full bet held to full time.</p>
-            </div>
-            <button onClick={openOriginalPreset} className="relative z-10 w-full bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow-lg shadow-amber-500/20">+ Use this preset</button>
-          </div>
-        </div>
-        <p className="text-[11px] text-slate-600 italic">Starting points based on live data — not financial advice.</p>
-      </div>
 
-      {/* BOTS LIST */}
-      <div className="bg-[#0d1527] border border-white/5 rounded-2xl overflow-hidden">
-        <div className="p-4 sm:p-5 border-b border-white/5 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">🤖 Automation Bots</h2>
-            <p className="text-xs text-slate-500 mt-1">AI-powered bots fire when signals match — Gemini 2.5 Pro handles popups and places bets</p>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={openNewBot} className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-lg shadow-blue-500/20">+ New Bot</button>
-          </div>
-        </div>
-        <div className="divide-y divide-white/5">
-          {bots.length === 0 ? (
-            <div className="p-8 text-center text-slate-500 text-sm">No automation bots configured yet.</div>
-          ) : (
+          {/* BOTS LIST */}
+          <div className="bg-[#0d1527] border border-white/5 rounded-2xl overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-white/5 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">🤖 Automation Bots</h2>
+                <p className="text-xs text-slate-500 mt-1">AI-powered bots fire when signals match — Gemini 2.5 Pro handles popups and places bets</p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={openNewBot} className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-lg shadow-blue-500/20">+ New Bot</button>
+              </div>
+            </div>
+            <div className="divide-y divide-white/5">
+              {bots.length === 0 ? (
+                <div className="p-8 text-center text-slate-500 text-sm">No automation bots configured yet.</div>
+              ) : (
             bots.map(b => {
               const stakeDisplay = b.stakingMethod?.includes('percent') ? `${b.stakeValue}% of bank` : `₦${b.stakeValue}`;
               const oversLabel = b.oversLine === 'over_0.5' ? 'O0.5' : b.oversLine === 'over_2.5' ? 'O2.5' : 'O1.5';

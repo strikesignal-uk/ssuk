@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { isUsingDB, query } from './db.js';
@@ -219,18 +219,40 @@ export function isUsingVolume() {
 
 // ── SportyBet Integration Storage ───────────────────────────────────────────
 
-const SPORTYBET_STORE = join(DATA_DIR, 'sportybet.json');
-const SPORTYBET_LOG = join(DATA_DIR, 'sportybet-log.json');
-
-export function readSportybet() {
-  try { return JSON.parse(readFileSync(SPORTYBET_STORE, 'utf-8')); } catch { return { connected: false, phone: '', password: '', bots: [] }; }
+export function getSportybetStorePath(userId) {
+  if (!userId) userId = 'global';
+  return join(DATA_DIR, `sportybet-${userId}.json`);
 }
-export function writeSportybet(data) { writeFileSync(SPORTYBET_STORE, JSON.stringify(data, null, 2), 'utf-8'); }
 
-export function readSportybetLog() {
-  try { return JSON.parse(readFileSync(SPORTYBET_LOG, 'utf-8')); } catch { return []; }
+export function getSportybetLogPath(userId) {
+  if (!userId) userId = 'global';
+  return join(DATA_DIR, `sportybet-log-${userId}.json`);
 }
-export function writeSportybetLog(data) { writeFileSync(SPORTYBET_LOG, JSON.stringify(data, null, 2), 'utf-8'); }
+
+export function readSportybet(userId) {
+  try { return JSON.parse(readFileSync(getSportybetStorePath(userId), 'utf-8')); } catch { return { connected: false, phone: '', password: '', bots: [] }; }
+}
+export function writeSportybet(userId, data) { writeFileSync(getSportybetStorePath(userId), JSON.stringify(data, null, 2), 'utf-8'); }
+
+export function readSportybetLog(userId) {
+  try { return JSON.parse(readFileSync(getSportybetLogPath(userId), 'utf-8')); } catch { return []; }
+}
+export function writeSportybetLog(userId, data) { writeFileSync(getSportybetLogPath(userId), JSON.stringify(data, null, 2), 'utf-8'); }
+
+export function getAllSportybetConfigs() {
+  const configs = [];
+  try {
+    const files = readdirSync(DATA_DIR);
+    for (const f of files) {
+      if (f.startsWith('sportybet-') && f.endsWith('.json') && !f.startsWith('sportybet-log-')) {
+        const userId = f.replace('sportybet-', '').replace('.json', '');
+        const data = readSportybet(userId);
+        configs.push({ userId, data });
+      }
+    }
+  } catch {}
+  return configs;
+}
 
 // ── Blog Storage ────────────────────────────────────────────────────────────
 const BLOG_STORE = join(DATA_DIR, 'blog.json');

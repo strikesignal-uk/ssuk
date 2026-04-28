@@ -1,6 +1,6 @@
 import fs from "fs";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { readSportybet, writeSportybet, readSportybetLog, writeSportybetLog } from "./storage.js";
+import { readSportybet, writeSportybet, readSportybetLog, writeSportybetLog, getAllSportybetConfigs } from "./storage.js";
 import { getSettings } from "./settings.js";
 import { convertToSportybet } from "./izentbet.js";
 
@@ -12,8 +12,8 @@ let activeBetCount = 0;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function appendLog(entry) {
-  const logs = readSportybetLog();
+function appendLog(userId, entry) {
+  const logs = readSportybetLog(userId);
   logs.unshift({
     ...entry,
     id: Date.now().toString(),
@@ -25,18 +25,18 @@ function appendLog(entry) {
     }),
   });
   const trimmed = logs.slice(0, 200);
-  writeSportybetLog(trimmed);
+  writeSportybetLog(userId, trimmed);
 }
 
-function getSportybet() {
-  const data = readSportybet();
+function getSportybet(userId) {
+  const data = readSportybet(userId);
   if (!data.connected || !data.encodedCredentials) return null;
   const decoded = Buffer.from(data.encodedCredentials, "base64").toString("utf8");
   const [phone, password] = decoded.split(":");
   return { phone, password, data };
 }
 
-function getActiveBots() {
+function getActiveBots(userId) {
   const sb = readSportybet();
   return (sb.bots || []).filter((b) => b.active === true);
 }
@@ -859,231 +859,111 @@ export async function processSignalForBots(signal) {
     signal.home + " vs " + signal.away
   );
 
-  // Step 1 — Check Sportybet connected
-  const sportybet = getSportybet();
-  if (!sportybet) {
-    console.log("⚠️ Sportybet not connected — skipping");
+  const configs = getAllSportybetConfigs();
+  const activeUsers = configs.filter(c => c.data.connected && c.data.encodedCredentials && (c.data.bots || []).some(b => b.active));
+  
+  if (activeUsers.length === 0) {
+    console.log("⚠️ No active bots for any user — skipping");
     return;
   }
 
-  // Step 2 — Get active bots
-  const activeBots = getActiveBots();
-  if (activeBots.length === 0) {
-    console.log("⚠️ No active bots — skipping");
-    return;
-  }
-
-  // Step 3 — Get share link
+  // Get share link once
   const betLink = await getShareLink(signal);
   if (!betLink) {
     console.log("⚠️ No share link available — skipping");
-    appendLog({
-      type: "ERROR",
-      fixtureId: signal.fixtureId,
-      match: signal.home + " v " + signal.away,
-      botName: "System",
-      botId: "system",
-      market: signal.betType,
-      stake: 0,
-      betLink: null,
-      status: "No share link from converter",
-      simulation: false,
-    });
+    for (const userConfig of activeUsers) {
+      appendLog(userConfig.userId, {
+        type: "ERROR",
+        fixtureId: signal.fixtureId,
+        match: signal.home + " v " + signal.away,
+        botName: "System",
+        botId: "system",
+        market: signal.betType,
+        stake: 0,
+        betLink: null,
+        status: "No share link from converter",
+        simulation: false,
+      });
+    }
     return;
   }
 
-  // Step 4 — Check concurrent bets
-  // Check against global activeBetCount instead of parsing ENTRY logs
-  // which can leave ghost entries if a bet fails
+  for (const userConfig of activeUsers) {
+    const userId = userConfig.userId;
+    console.log("\n--- Processing for user: " + userId + " ---");
 
-  // Step 5 — Loop through each active bot
-  for (const bot of activeBots) {
-    console.log("\n🤖 Checking bot:", bot.name);
+    const sportybet = getSportybet(userId);
+    if (!sportybet) continue;
 
-    // Max concurrent bets
-    if (bot.maxConcurrentBets && activeBetCount >= parseInt(bot.maxConcurrentBets)) {
-      console.log("⚠️ Max concurrent bets reached");
-      continue;
-    }
+    const activeBots = getActiveBots(userId);
+    if (activeBots.length === 0) continue;
 
-    // Check signal matches bot
-    const matchResult = signalMatchesBot(signal, bot);
-    if (!matchResult.match) {
-      console.log("⚠️ Signal doesn't match:", matchResult.reason);
-      continue;
-    }
+    for (const bot of activeBots) {
+      console.log("\n🤖 Checking bot:", bot.name);
 
-    console.log("✅ Signal matches bot! Processing...");
-
-    // Calculate stake
-    const stakeAmount = calculateStake(bot, sportybet);
-
-    if (stakeAmount < 100) {
-      appendLog({
-        type: "ERROR",
-        fixtureId: signal.fixtureId,
-        match: signal.home + " v " + signal.away,
-        botName: bot.name,
-        botId: bot.id,
-        market: signal.betType,
-        stake: stakeAmount,
-        betLink,
-        status: "Stake too small: ₦" + stakeAmount + " (minimum ₦100)",
-        simulation: matchResult.simulation,
-      });
-      continue;
-    }
-
-    // Log ENTRY
-    appendLog({
-      type: "ENTRY",
-      fixtureId: signal.fixtureId,
-      match: signal.home + " v " + signal.away,
-      league: signal.league,
-      botName: bot.name,
-      botId: bot.id,
-      market: signal.betType,
-      confidence: signal.confidence,
-      minute: signal.minute,
-      stake: stakeAmount,
-      betLink,
-      status: "Attempting bet placement...",
-      simulation: matchResult.simulation,
-    });
-
-    // Simulation mode
-    if (matchResult.simulation) {
-      console.log("📊 SIMULATION — no real bet placed");
-      appendLog({
-        type: "SUCCESS",
-        fixtureId: signal.fixtureId,
-        match: signal.home + " v " + signal.away,
-        league: signal.league,
-        botName: bot.name,
-        botId: bot.id,
-        market: signal.betType,
-        confidence: signal.confidence,
-        minute: signal.minute,
-        stake: stakeAmount,
-        betLink,
-        status: "Simulated bet: ₦" + stakeAmount.toLocaleString() + " on " + signal.betType,
-        simulation: true,
-      });
-      continue;
-    }
-
-    // Real bet — launch Puppeteer
-    let browser = null;
-    try {
-      activeBetCount++;
-      const { loginSportybet } = await import("./sportybetScraper.js");
-
-      console.log("🔄 Launching browser for bet...");
-      const loginResult = await loginSportybet(sportybet.phone, sportybet.password);
-
-      if (!loginResult.success) {
-        appendLog({
-          type: "ERROR",
-          fixtureId: signal.fixtureId,
-          match: signal.home + " v " + signal.away,
-          botName: bot.name,
-          botId: bot.id,
-          market: signal.betType,
-          stake: stakeAmount,
-          betLink,
-          status: "Login failed: " + loginResult.error,
-          simulation: false,
-        });
+      if (bot.maxConcurrentBets && activeBetCount >= parseInt(bot.maxConcurrentBets)) {
+        console.log("⚠️ Max concurrent bets reached");
         continue;
       }
 
-      browser = loginResult.browser;
-      const page = loginResult.page;
+      const matchResult = signalMatchesBot(signal, bot);
+      if (!matchResult.match) continue;
 
-      // Run AI bet placement with 2 attempts
-      let result = { betPlaced: false, lastError: "Unknown" };
-      
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        if (attempt > 1) {
-          console.log(`\n🔄 Attempt ${attempt}/2 for bot: ${bot.name} on ${signal.home} v ${signal.away}`);
-          console.log("Reloading bet slip...");
-          await page.goto(betLink, { waitUntil: "domcontentloaded", timeout: 45000 });
-          await delay(3000); // wait for page to settle
+      const stakeAmount = calculateStake(bot, sportybet);
+
+      if (stakeAmount < 100) {
+        appendLog(userId, { type: "ERROR", fixtureId: signal.fixtureId, match: signal.home + " v " + signal.away, botName: bot.name, botId: bot.id, market: signal.betType, stake: stakeAmount, betLink, status: "Stake too small: ₦" + stakeAmount + " (minimum ₦100)", simulation: matchResult.simulation });
+        continue;
+      }
+
+      appendLog(userId, { type: "ENTRY", fixtureId: signal.fixtureId, match: signal.home + " v " + signal.away, league: signal.league, botName: bot.name, botId: bot.id, market: signal.betType, confidence: signal.confidence, minute: signal.minute, stake: stakeAmount, betLink, status: "Attempting bet placement...", simulation: matchResult.simulation });
+
+      if (matchResult.simulation) {
+        appendLog(userId, { type: "SUCCESS", fixtureId: signal.fixtureId, match: signal.home + " v " + signal.away, league: signal.league, botName: bot.name, botId: bot.id, market: signal.betType, confidence: signal.confidence, minute: signal.minute, stake: stakeAmount, betLink, status: "Simulated bet: ₦" + stakeAmount.toLocaleString() + " on " + signal.betType, simulation: true });
+        continue;
+      }
+
+      let browser = null;
+      try {
+        activeBetCount++;
+        const { loginSportybet } = await import("./sportybetScraper.js");
+        const loginResult = await loginSportybet(sportybet.phone, sportybet.password);
+
+        if (!loginResult.success) {
+          appendLog(userId, { type: "ERROR", fixtureId: signal.fixtureId, match: signal.home + " v " + signal.away, botName: bot.name, botId: bot.id, market: signal.betType, stake: stakeAmount, betLink, status: "Login failed: " + loginResult.error, simulation: false });
+          continue;
         }
+
+        browser = loginResult.browser;
+        const page = loginResult.page;
+
+        let result = { betPlaced: false, lastError: "Unknown" };
         
-        result = await placeBetWithAI(page, betLink, stakeAmount, signal, bot);
-        
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          if (attempt > 1) {
+            await page.goto(betLink, { waitUntil: "domcontentloaded", timeout: 45000 });
+            await new Promise(r => setTimeout(r, 3000));
+          }
+          result = await placeBetWithAI(page, betLink, stakeAmount, signal, bot);
+          if (result.betPlaced) break;
+        }
+
         if (result.betPlaced) {
-          break; // Success! Break out of the retry loop.
+          appendLog(userId, { type: "SUCCESS", fixtureId: signal.fixtureId, match: signal.home + " v " + signal.away, league: signal.league, botName: bot.name, botId: bot.id, market: signal.betType, confidence: signal.confidence, minute: signal.minute, stake: stakeAmount, betLink, status: "✅ Bet placed: ₦" + stakeAmount.toLocaleString() + " on " + signal.betType, aiSteps: result.steps, simulation: false });
+        } else {
+          appendLog(userId, { type: "ERROR", fixtureId: signal.fixtureId, match: signal.home + " v " + signal.away, league: signal.league, botName: bot.name, botId: bot.id, market: signal.betType, stake: stakeAmount, betLink, status: "❌ Failed: " + result.lastError, aiSteps: result.steps, simulation: false });
         }
-        
-        if (attempt === 1) {
-          console.log(`⚠️ Attempt 1 failed for bot ${bot.name}: ${result.lastError}. Retrying...`);
-        }
-      }
-
-      if (result.betPlaced) {
-        console.log("✅ Bet placed for bot:", bot.name);
-        appendLog({
-          type: "SUCCESS",
-          fixtureId: signal.fixtureId,
-          match: signal.home + " v " + signal.away,
-          league: signal.league,
-          botName: bot.name,
-          botId: bot.id,
-          market: signal.betType,
-          confidence: signal.confidence,
-          minute: signal.minute,
-          stake: stakeAmount,
-          betLink,
-          status: "✅ Bet placed: ₦" + stakeAmount.toLocaleString() + " on " + signal.betType,
-          aiSteps: result.steps,
-          simulation: false,
-        });
-      } else {
-        console.error("❌ Bet failed after 2 attempts:", result.lastError);
-        appendLog({
-          type: "ERROR",
-          fixtureId: signal.fixtureId,
-          match: signal.home + " v " + signal.away,
-          league: signal.league,
-          botName: bot.name,
-          botId: bot.id,
-          market: signal.betType,
-          stake: stakeAmount,
-          betLink,
-          status: "❌ Failed: " + result.lastError,
-          aiSteps: result.steps,
-          simulation: false,
-        });
-      }
-    } catch (err) {
-      console.error("❌ Automation error:", err.message);
-      appendLog({
-        type: "ERROR",
-        fixtureId: signal.fixtureId,
-        match: signal.home + " v " + signal.away,
-        botName: bot.name,
-        botId: bot.id,
-        market: signal.betType,
-        stake: stakeAmount,
-        betLink,
-        status: "Error: " + err.message,
-        simulation: false,
-      });
-    } finally {
-      activeBetCount = Math.max(0, activeBetCount - 1);
-      if (browser) {
-        await browser.close();
-        console.log("🔒 Browser closed");
+      } catch (err) {
+        appendLog(userId, { type: "ERROR", fixtureId: signal.fixtureId, match: signal.home + " v " + signal.away, botName: bot.name, botId: bot.id, market: signal.betType, stake: stakeAmount, betLink, status: "Error: " + err.message, simulation: false });
+      } finally {
+        activeBetCount = Math.max(0, activeBetCount - 1);
+        if (browser) await browser.close();
       }
     }
   }
 }
 
-// ── Test Automation (manual trigger with a direct bet link) ──────────────────
-
-export async function testAutomation(betLink, stakeAmount = 100) {
+export async function testAutomation(userId, betLink, stakeAmount = 100) {
   console.log("\n════════════════════════════════════════════════");
   console.log("🧪 TEST AUTOMATION — Manual Trigger");
   console.log("   Link:", betLink);
@@ -1091,11 +971,11 @@ export async function testAutomation(betLink, stakeAmount = 100) {
   console.log("════════════════════════════════════════════════\n");
 
   // Step 1 — Check Sportybet connected
-  const sportybet = getSportybet();
+  const sportybet = getSportybet(userId);
   if (!sportybet) {
     const err = "Sportybet not connected — go to Integration tab and connect first";
     console.log("❌", err);
-    appendLog({
+    appendLog(userId, {
       type: "ERROR",
       match: "Test Automation",
       botName: "Manual Test",
@@ -1114,7 +994,7 @@ export async function testAutomation(betLink, stakeAmount = 100) {
   if (!model) {
     const err = "Gemini API key not configured — add it in .env or Admin Panel settings";
     console.log("❌", err);
-    appendLog({
+    appendLog(userId, {
       type: "ERROR",
       match: "Test Automation",
       botName: "Manual Test",
@@ -1134,7 +1014,7 @@ export async function testAutomation(betLink, stakeAmount = 100) {
     const { loginSportybet } = await import("./sportybetScraper.js");
 
     console.log("🔄 Launching browser...");
-    appendLog({
+    appendLog(userId, {
       type: "ENTRY",
       match: "Test Automation",
       botName: "Manual Test",
@@ -1151,7 +1031,7 @@ export async function testAutomation(betLink, stakeAmount = 100) {
     if (!loginResult.success) {
       const err = "Login failed: " + loginResult.error;
       console.log("❌", err);
-      appendLog({
+      appendLog(userId, {
         type: "ERROR",
         match: "Test Automation",
         botName: "Manual Test",
@@ -1183,7 +1063,7 @@ export async function testAutomation(betLink, stakeAmount = 100) {
 
     if (result.betPlaced) {
       console.log("✅ TEST: Bet placed successfully!");
-      appendLog({
+      appendLog(userId, {
         type: "SUCCESS",
         match: "Test Automation",
         botName: "Manual Test",
@@ -1205,7 +1085,7 @@ export async function testAutomation(betLink, stakeAmount = 100) {
       return { success: true, steps: result.steps, betPlaced: true };
     } else {
       console.error("❌ TEST: Bet failed:", result.lastError);
-      appendLog({
+      appendLog(userId, {
         type: "ERROR",
         match: "Test Automation",
         botName: "Manual Test",
@@ -1228,7 +1108,7 @@ export async function testAutomation(betLink, stakeAmount = 100) {
     }
   } catch (err) {
     console.error("❌ Test automation error:", err.message);
-    appendLog({
+    appendLog(userId, {
       type: "ERROR",
       match: "Test Automation",
       botName: "Manual Test",

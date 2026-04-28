@@ -14,6 +14,16 @@ const NAV = [
 ];
 
 export default function Sidebar({ page, setPage, user, onLogout, liveCount, collapsed, setCollapsed }) {
+  const [sub, setSub] = useState({ plan: 'free', active: false });
+
+  useEffect(() => {
+    if (user?.id) {
+      fetch(`${API}/api/subscription/status?userId=${user.id}`)
+        .then(res => res.json())
+        .then(data => setSub(data))
+        .catch(console.error);
+    }
+  }, [user]);
 
   return (
     <>
@@ -78,8 +88,30 @@ export default function Sidebar({ page, setPage, user, onLogout, liveCount, coll
             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
               {user?.name?.charAt(0).toUpperCase() || '?'}
             </div>
-            {!collapsed && <span className="truncate">{user?.name || 'Profile'}</span>}
+            {!collapsed && (
+              <div className="flex-1 min-w-0 text-left">
+                <div className="flex items-center justify-between">
+                  <span className="truncate">{user?.name || 'Profile'}</span>
+                  {sub.plan === 'pro' && sub.active ? (
+                    <span className="bg-emerald-500/20 text-emerald-400 text-[9px] font-black px-1.5 py-0.5 rounded uppercase">Pro</span>
+                  ) : (
+                    <span className="bg-slate-500/20 text-slate-400 text-[9px] font-black px-1.5 py-0.5 rounded uppercase">Free</span>
+                  )}
+                </div>
+                {sub.plan === 'pro' && sub.active && sub.expiresAt && (
+                  <div className="text-[9px] text-slate-600 mt-0.5">Expires: {new Date(sub.expiresAt).toLocaleDateString()}</div>
+                )}
+              </div>
+            )}
           </button>
+
+          {!collapsed && sub.plan !== 'pro' && (
+            <div className="px-2 pb-1">
+              <a href="/pricing" className="block w-full text-center text-[10px] font-bold text-amber-500 hover:text-amber-400 transition-colors uppercase tracking-widest mt-1 mb-2">
+                Upgrade to Pro →
+              </a>
+            </div>
+          )}
 
           {/* Sign Out */}
           <button onClick={onLogout}
