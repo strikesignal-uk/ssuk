@@ -84,10 +84,10 @@ export async function initDB() {
     await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';`);
 
     // Signals: $market + $market booking code columns
-    await query(`ALTER TABLE signals ADD COLUMN IF NOT EXISTS $market_share_code TEXT;`);
-    await query(`ALTER TABLE signals ADD COLUMN IF NOT EXISTS $market_bet_link TEXT;`);
-    await query(`ALTER TABLE signals ADD COLUMN IF NOT EXISTS $market_market TEXT;`);
-    await query(`ALTER TABLE signals ADD COLUMN IF NOT EXISTS $market_code TEXT;`);
+    await query(`ALTER TABLE signals ADD COLUMN IF NOT EXISTS "$market_share_code" TEXT;`);
+    await query(`ALTER TABLE signals ADD COLUMN IF NOT EXISTS "$market_bet_link" TEXT;`);
+    await query(`ALTER TABLE signals ADD COLUMN IF NOT EXISTS "$market_market" TEXT;`);
+    await query(`ALTER TABLE signals ADD COLUMN IF NOT EXISTS "$market_code" TEXT;`);
 
     // Blog Posts
     await query(`
