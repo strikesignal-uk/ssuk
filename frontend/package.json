@@ -12,6 +12,7 @@
     "autoprefixer": "latest",
     "postcss": "latest",
     "tailwindcss": "latest",
+    "@tailwindcss/postcss": "latest",
     "vite": "latest"
   },
   "scripts": {
