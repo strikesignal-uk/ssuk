@@ -1,7 +1,8 @@
-import { convertToSportybet, getIzentBetCodes } from './izentbet.js';
-import { readSportybet, readSportybetLog, writeSportybetLog } from './storage.js';
+import { convertTo$market, getIzentBetCodes } from './izentbet.js';
+import { read$market, read$marketLog, write$marketLog } from './storage.js';
 import { getSettings } from './settings.js';
 import { processSignalForBots } from './automationEngine.js';
+import { broadcastSignalAlert } from './broadcaster.js';
 
 export async function generateSignal(match) {
   const { minute, xGGap, dangerAttacks, xG, totalGoals, score, odds } = match;
@@ -54,20 +55,20 @@ export async function generateSignal(match) {
   console.log(`🎯 Bet type: ${betType} | Confidence: ${confidence.toUpperCase()}`);
   console.log(`🎯 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
-  // ── Convert fixture to Sportybet code BEFORE saving ────────────────────────
+  // ── Convert fixture to $market code BEFORE saving ────────────────────────
   console.log(`🔄 Starting conversion for: ${match.home} vs ${match.away}...`);
   const conversionStart = Date.now();
-  const conversion = await convertToSportybet(match.home, match.away, betType);
+  const conversion = await convertTo$market(match.home, match.away, betType);
   const conversionTime = ((Date.now() - conversionStart) / 1000).toFixed(1);
   console.log(`⏱️ Conversion took ${conversionTime}s`);
 
-  let sportybetData = null;
+  let $marketData = null;
   let bookingCodesData = null;
 
   if (conversion.success) {
     console.log(`✅ Conversion complete: ${conversion.shareCode}`);
     console.log(`✅ Bet link: ${conversion.betLink}`);
-    sportybetData = {
+    $marketData = {
       shareCode: conversion.shareCode,
       betLink: conversion.betLink,
       market: conversion.market,
@@ -75,20 +76,20 @@ export async function generateSignal(match) {
       convertedAt: new Date().toISOString(),
     };
     bookingCodesData = {
-      sportybet: conversion.shareCode,
-      sportybet_url: conversion.betLink,
-      bet9ja: null,
+      $market: conversion.shareCode,
+      $market_url: conversion.betLink,
+      $market: null,
     };
   } else {
     console.log(`⚠️ Conversion failed: ${conversion.error}`);
-    console.log(`⚠️ Saving signal WITHOUT Sportybet link`);
+    console.log(`⚠️ Saving signal WITHOUT $market link`);
   }
 
   // If the admin has enabled "Only show signals with booking codes",
   // suppress this signal when conversion couldn't produce a code.
   const settings = await getSettings();
   if (settings.filterNoBookingCodes === 'true') {
-    const hasCodes = sportybetData && sportybetData.shareCode;
+    const hasCodes = $marketData && $marketData.shareCode;
     if (!hasCodes) {
       console.log(`[SignalEngine] Suppressing signal — no booking codes for ${match.home} vs ${match.away}`);
       return null;
@@ -104,24 +105,34 @@ export async function generateSignal(match) {
     betOdds,
     // Structured booking codes object consumed by storage + frontend
     bookingCodes: bookingCodesData || null,
-    // sportybet shape used by frontend LivePage + Opportunities + automation
-    sportybet: sportybetData,
+    // $market shape used by frontend LivePage + Opportunities + automation
+    $market: $marketData,
   };
 
-  console.log(`💾 Signal saved — sportybet: ${sportybetData ? sportybetData.shareCode : 'null'}`);
-  console.log(`💾 Signal object sportybet field: ${JSON.stringify(finalSignal.sportybet)}`);
+  console.log(`💾 Signal saved — $market: ${$marketData ? $marketData.shareCode : 'null'}`);
+  console.log(`💾 Signal object $market field: ${JSON.stringify(finalSignal.$market)}`);
 
   // Fire automation engine asynchronously — do NOT await to avoid blocking the poll cycle
   processSignalForBots({
     ...match,
     ...finalSignal,
     fixtureId: match.fixtureId,
-    sportybet: finalSignal.sportybet || null
+    $market: finalSignal.$market || null
   }).catch(err => {
     console.error("❌ Automation error:", err.message);
   });
 
   console.log("🤖 Automation check triggered for:", match.home + " vs " + match.away);
+
+  // Fire Telegram broadcast asynchronously — never blocks
+  broadcastSignalAlert({
+    ...match,
+    ...finalSignal,
+  }).catch(err => {
+    console.error("❌ Broadcast error:", err.message);
+  });
+
+  console.log("📣 Telegram broadcast triggered for:", match.home + " vs " + match.away);
 
   return finalSignal;
 }

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 
 const API = import.meta.env.VITE_API_URL;
-const fmt = n => '₦' + Math.abs(Number(n)).toLocaleString('en-NG');
+const fmt = n => '£' + Math.abs(Number(n)).toLocaleString('en-NG');
 const token = () => localStorage.getItem('ss_token');
 const hdrs = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` });
 
@@ -89,7 +89,7 @@ export default function TradeLog() {
               { k: 'match', ph: 'e.g. Arsenal vs Chelsea', label: 'Match *' },
               { k: 'market', ph: 'e.g. Over 2.5 Goals', label: 'Market *' },
               { k: 'odds', ph: '1.85', label: 'Odds *', type: 'number' },
-              { k: 'stake', ph: '5000', label: 'Stake (₦) *', type: 'number' },
+              { k: 'stake', ph: '5000', label: 'Stake (£) *', type: 'number' },
               { k: 'date', ph: '', label: 'Date', type: 'date' },
             ].map(({ k, ph, label, type = 'text' }) => (
               <div key={k}>

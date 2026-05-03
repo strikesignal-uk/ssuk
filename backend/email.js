@@ -5,7 +5,7 @@ async function getResendClient() {
   const settings = await getSettings();
   const apiKey = settings.resendApiKey || process.env.RESEND_API_KEY;
   if (!apiKey) return null;
-  return { client: new Resend(apiKey), from: settings.emailFrom || process.env.EMAIL_FROM || 'StrikeSignal Alerts <alerts@izentsport.xyz>' };
+  return { client: new Resend(apiKey), from: settings.emailFrom || process.env.EMAIL_FROM || 'StrikeSignal Alerts <alerts@mail.strikesignal.pro>' };
 }
 
 /* ── Shared email shell ── */
@@ -18,18 +18,14 @@ function emailLayout(content) {
 <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
 
 <!-- Header -->
-<tr><td style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);padding:28px 32px;border-radius:16px 16px 0 0;">
+<tr><td style="background:#0a0f1e;padding:28px 32px;border-radius:16px 16px 0 0;border-bottom:1px solid #1e293b;">
   <table width="100%" cellpadding="0" cellspacing="0"><tr>
-    <td width="48">
-      <div style="width:44px;height:44px;background:#fbbf24;border-radius:12px;text-align:center;line-height:44px;font-size:24px;">&#9889;</div>
-    </td>
-    <td style="padding-left:12px;">
-      <span style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-0.5px;">StrikeSignal</span><br>
-      <span style="font-size:11px;color:#93c5fd;font-weight:500;letter-spacing:1px;">LIVE FOOTBALL INTELLIGENCE</span>
+    <td>
+      <img src="https://strikesignal.pro/logo.png" alt="StrikeSignal" width="140" style="display:block;max-width:140px;height:auto;" />
     </td>
     <td align="right">
-      <div style="background:rgba(255,255,255,0.15);border-radius:20px;padding:6px 14px;">
-        <span style="color:#fbbf24;font-size:11px;font-weight:700;letter-spacing:1px;">&#9917; ALERT</span>
+      <div style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);border-radius:20px;padding:6px 14px;">
+        <span style="color:#60a5fa;font-size:11px;font-weight:700;letter-spacing:1px;">&#9917; ALERT</span>
       </div>
     </td>
   </tr></table>

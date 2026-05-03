@@ -28,13 +28,13 @@ const StatCard = ({ icon, label, value, sub, colorClass = "text-white", onClick 
   </div>
 );
 
-export default function SportybetAccount({ status, onNavigate }) {
+export default function $marketAccount({ status, onNavigate }) {
   const [bankroll, setBankroll] = useState(null);
   
   // Real Balance State
   const [connected, setConnected] = useState(false);
   const [balance, setBalance] = useState(0);
-  const [balanceFormatted, setBalanceFormatted] = useState("₦0.00");
+  const [balanceFormatted, setBalanceFormatted] = useState("£0.00");
   const [lastSync, setLastSync] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -42,10 +42,10 @@ export default function SportybetAccount({ status, onNavigate }) {
   const fetchBalance = async () => {
     setRefreshing(true);
     try {
-      const res = await fetch(`${API}/api/sportybet/balance`, { headers: hdrs() });
+      const res = await fetch(`${API}/api/$market/balance`, { headers: hdrs() });
       const data = await res.json();
       setBalance(data.balance || 0);
-      setBalanceFormatted(data.balanceFormatted || "₦0.00");
+      setBalanceFormatted(data.balanceFormatted || "£0.00");
       setLastSync(data.lastBalanceSync);
     } catch (err) {
       console.error(err);
@@ -55,7 +55,7 @@ export default function SportybetAccount({ status, onNavigate }) {
   };
 
   useEffect(() => {
-    fetch(`${API}/api/sportybet/status`, { headers: hdrs() })
+    fetch(`${API}/api/$market/status`, { headers: hdrs() })
       .then(r => r.json())
       .then(data => {
         setConnected(data.connected);
@@ -69,12 +69,12 @@ export default function SportybetAccount({ status, onNavigate }) {
   }, []);
 
   const handleSetBankroll = () => {
-    const val = prompt("Enter new bankroll amount (₦):", bankroll || "");
+    const val = prompt("Enter new bankroll amount (£):", bankroll || "");
     if (val && !isNaN(val)) setBankroll(Number(val));
   };
 
   const handleSetStakeLimit = () => {
-    prompt("Enter new max stake limit (₦):", "50000");
+    prompt("Enter new max stake limit (£):", "50000");
   };
 
   return (
@@ -112,7 +112,7 @@ export default function SportybetAccount({ status, onNavigate }) {
                 onClick={() => onNavigate && onNavigate('integration')} 
                 className="text-xs text-amber-500 hover:text-amber-400 font-medium mt-1 underline"
               >
-                Connect Sportybet
+                Connect $market
               </button>
             </div>
           ) : (
@@ -147,7 +147,7 @@ export default function SportybetAccount({ status, onNavigate }) {
         />
         <StatCard 
           label="Stake Limit" 
-          value="₦50,000.00" 
+          value="£50,000.00" 
           colorClass="text-white"
           sub="Max per signal" 
           icon="🛡️" 
@@ -155,16 +155,16 @@ export default function SportybetAccount({ status, onNavigate }) {
         />
         <StatCard 
           label="SS Bankroll" 
-          value={bankroll ? `₦${bankroll.toLocaleString('en-NG')}` : "Not set"} 
+          value={bankroll ? `£${bankroll.toLocaleString('en-NG')}` : "Not set"} 
           colorClass="text-slate-400"
-          sub="✏️ Use Sportybet balance" 
+          sub="✏️ Use $market balance" 
           icon="✨" 
           onClick={handleSetBankroll}
         />
       </div>
 
       <div className="text-center text-sm font-semibold text-slate-500 bg-[#0d1527] border border-white/5 py-3 rounded-xl">
-        Open bets: 0 <span className="mx-2 text-white/10">|</span> Matched: ₦0.00
+        Open bets: 0 <span className="mx-2 text-white/10">|</span> Matched: £0.00
       </div>
 
       {/* OPEN BETSLIPS */}

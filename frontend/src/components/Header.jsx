@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 
 export default function TopBar({ page, user, onLogout, liveCount, sidebarCollapsed, setSidebarCollapsed }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const labels = { dashboard:'Dashboard', live:'Live Signals', tradelog:'Trade Log', schedule:'Schedule', results:'Results', sportybet: 'Sportybet', settings:'Settings', profile:'Profile' };
+  const labels = { dashboard:'Dashboard', live:'Live Signals', tradelog:'Trade Log', schedule:'Schedule', results:'Results', $market: '$market', settings:'Settings', profile:'Profile' };
   return (
     <header className="h-14 flex items-center justify-between px-4 bg-[#0a0f1e]/90 backdrop-blur border-b border-white/5 sticky top-0 z-10">
       <div className="flex items-center gap-3">

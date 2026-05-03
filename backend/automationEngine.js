@@ -1,19 +1,19 @@
 import fs from "fs";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { readSportybet, writeSportybet, readSportybetLog, writeSportybetLog, getAllSportybetConfigs } from "./storage.js";
+import { GoogleGenAI } from "@google/genai";
+import { read$market, write$market, read$marketLog, write$marketLog, getAll$marketConfigs } from "./storage.js";
 import { getSettings } from "./settings.js";
-import { convertToSportybet } from "./izentbet.js";
+import { convertTo$market } from "./izentbet.js";
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-const MOBILE_BASE = "https://www.sportybet.com/ng/m";
+const DESKTOP_BASE = "https://www.$market.com/ng";
 const MAX_AI_STEPS = 15;
 let activeBetCount = 0;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function appendLog(userId, entry) {
-  const logs = readSportybetLog(userId);
+  const logs = read$marketLog(userId);
   logs.unshift({
     ...entry,
     id: Date.now().toString(),
@@ -25,11 +25,11 @@ function appendLog(userId, entry) {
     }),
   });
   const trimmed = logs.slice(0, 200);
-  writeSportybetLog(userId, trimmed);
+  write$marketLog(userId, trimmed);
 }
 
-function getSportybet(userId) {
-  const data = readSportybet(userId);
+function get$market(userId) {
+  const data = read$market(userId);
   if (!data.connected || !data.encodedCredentials) return null;
   const decoded = Buffer.from(data.encodedCredentials, "base64").toString("utf8");
   const [phone, password] = decoded.split(":");
@@ -37,11 +37,11 @@ function getSportybet(userId) {
 }
 
 function getActiveBots(userId) {
-  const sb = readSportybet();
+  const sb = read$market(userId);
   return (sb.bots || []).filter((b) => b.active === true);
 }
 
-function signalMatchesBot(signal, bot) {
+function signalMatchesBot(signal, bot, userId) {
   // Confidence check
   const confLevels = { high: 3, medium: 2, low: 1 };
   const sigConf = confLevels[signal.confidence] || 0;
@@ -81,7 +81,7 @@ function signalMatchesBot(signal, bot) {
   }
 
   // Stop endless retries: If we already succeeded OR exhausted our 2 attempts (logged an ERROR) for this fixture today, skip it.
-  const logs = readSportybetLog();
+  const logs = read$marketLog(userId);
   const today = new Date().toDateString();
   const alreadyAttempted = logs.some(
     (l) =>
@@ -108,8 +108,8 @@ function signalMatchesBot(signal, bot) {
   return { match: true, simulation: false };
 }
 
-function calculateStake(bot, sportybet) {
-  const balance = sportybet.data.balance || 0;
+function calculateStake(bot, $market) {
+  const balance = $market.data.balance || 0;
   const stakeVal = parseFloat(bot.stakeValue) || 2;
 
   if (bot.stakingMethod === "percent" || bot.stakingMethod === "percent_drip") {
@@ -127,15 +127,15 @@ function calculateStake(bot, sportybet) {
 
 async function getShareLink(signal) {
   // If signal already has a pre-converted share link, use it immediately
-  if (signal.sportybet && signal.sportybet.betLink) {
-    console.log("✅ Using pre-converted link:", signal.sportybet.betLink);
-    return signal.sportybet.betLink;
+  if (signal.$market && signal.$market.betLink) {
+    console.log("✅ Using pre-converted link:", signal.$market.betLink);
+    return signal.$market.betLink;
   }
 
   // On-demand conversion via AI Chat endpoint as backup
   console.log("🔄 Converting on-demand for automation...");
   try {
-    const conversion = await convertToSportybet(
+    const conversion = await convertTo$market(
       signal.home,
       signal.away,
       signal.betType
@@ -154,12 +154,189 @@ async function getShareLink(signal) {
 
 // ── Gemini AI Vision ─────────────────────────────────────────────────────────
 
-async function getGeminiModel() {
+async function getGeminiClient() {
   const settings = await getSettings();
   const apiKey = settings.geminiApiKey || process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
-  const genAI = new GoogleGenerativeAI(apiKey);
-  return genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
+  return new GoogleGenAI({ apiKey });
+}
+
+// ── Visual Guard: AI-powered UI obstruction detector & clearer ───────────────
+
+async function visualGuard(page) {
+  const MAX_CLEARANCE_ATTEMPTS = 5;
+  let attempts = 0;
+
+  while (attempts < MAX_CLEARANCE_ATTEMPTS) {
+    attempts++;
+    console.log("🛡️ Visual Guard scan #" + attempts);
+
+    let screenshot;
+    try {
+      screenshot = await page.screenshot({ encoding: "base64", fullPage: false });
+    } catch (ssErr) {
+      console.error("❌ Visual Guard: screenshot failed:", ssErr.message);
+      return { clear: true, attempts }; // assume clear if we can't screenshot
+    }
+
+    const client = await getGeminiClient();
+    if (!client) {
+      console.warn("⚠️ Visual Guard: no Gemini client — skipping");
+      return { clear: true, attempts };
+    }
+
+    const guardPrompt = `### SYSTEM INSTRUCTION: UI CLEARANCE PROTOCOL
+
+### ROLE
+You are the "Visual Guard" for a desktop browser automation mission. Your task is to act as a pre-processor to ensure the desktop web UI is interactive and free of obstructions.
+
+### OBJECTIVE
+Analyze the desktop screenshot provided. Check for and clear any UI obstructions BEFORE any main bot actions proceed.
+
+### OBSTRUCTION IDENTIFICATION
+Scan specifically for:
+- Ads: Interstitial overlays, banner popups, promotional modals
+- Notifications: System alerts, in-app push messages, notification banners
+- Modals: Rate app, Subscribe, Update prompts
+- Cookie/GDPR banners: Accept or Close them
+- Permission Dialogs: Location preference popups
+- Account Protection: "We detected login from another device" — click "Yes, it's me"
+- Security prompts: "Secure Your Account", "Enable 2-step verification" — click "Skip For Now"
+- Welcome/Intro screens: Click Skip or Close
+- Location Preference popup: Click "Confirm"
+- Any overlay or modal blocking the main content
+
+### CLEARANCE STRATEGY
+If an obstruction is detected:
+1. Locate the Dismissal Element: Find “X”, “Close”, “Skip”, “No Thanks”, “Dismiss”, “Yes it’s me”, “Skip For Now”, “Got it”, “OK”, “Accept”, “Confirm” button
+2. Extract precise center coordinates (x, y) for a click action
+3. For overlays without buttons: click the X or outside the modal
+
+### OUTPUT — RESPOND WITH ONLY THIS JSON:
+{
+  "status": "OBSTRUCTED" or "CLEAR",
+  "detected_obstacle": "description or none",
+  "action": "click" or "swipe" or "none",
+  "target_coords": {"x": 0, "y": 0},
+  "swipe_direction": "up" or "down" or null,
+  "confidence": 0.0 to 1.0,
+  "dismissal_text": "text of button to click"
+}
+
+RULES:
+- If OBSTRUCTED: perform clearance then re-scan
+- If CLEAR: proceed to main bot instructions
+- NEVER interact with main UI while overlay present
+- For "Yes, it's me" buttons: always click them
+- For "Skip For Now" buttons: always click them
+- For "Confirm" on Location Preference: always click it
+- For "No, it's not me" buttons: NEVER click them
+- For "Protect My Account" buttons: NEVER click them`;
+
+    const imagePart = {
+      inlineData: {
+        data: screenshot,
+        mimeType: "image/png",
+      },
+    };
+
+    let guardResult;
+    try {
+      const result = await client.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [
+          { text: guardPrompt },
+          { inlineData: { data: screenshot, mimeType: "image/png" } },
+        ],
+      });
+      const responseText = result.text;
+      const cleaned = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
+      guardResult = JSON.parse(cleaned);
+    } catch (parseErr) {
+      console.error("❌ Visual Guard parse error:", parseErr.message);
+      // If we can't parse, assume clear and let the main bot handle it
+      return { clear: true, attempts };
+    }
+
+    console.log("🛡️ Guard result:", JSON.stringify(guardResult));
+
+    // If CLEAR — exit loop and proceed
+    if (guardResult.status === "CLEAR") {
+      console.log("✅ Visual Guard: UI is clear — proceeding");
+      return { clear: true, attempts };
+    }
+
+    // If OBSTRUCTED — perform clearance
+    if (guardResult.status === "OBSTRUCTED") {
+      console.log("⚠️ Visual Guard: Found obstruction:", guardResult.detected_obstacle);
+      console.log("🔧 Visual Guard: Clearing with action:", guardResult.action);
+
+      try {
+        if (guardResult.action === "click") {
+          const x = guardResult.target_coords?.x;
+          const y = guardResult.target_coords?.y;
+
+          if (x && y && x > 0 && y > 0) {
+            await page.mouse.click(x, y);
+            console.log("✅ Visual Guard: Clicked at coordinates:", x, y);
+            await delay(1500);
+          } else if (guardResult.dismissal_text) {
+            const btnText = guardResult.dismissal_text;
+            const clicked = await page.evaluate((text) => {
+              const elements = document.querySelectorAll("button, a, span, div, p");
+              for (const el of elements) {
+                if (el.textContent.trim().toLowerCase().includes(text.toLowerCase()) && el.offsetParent !== null) {
+                  el.click();
+                  return true;
+                }
+              }
+              return false;
+            }, btnText);
+            if (clicked) {
+              console.log("✅ Visual Guard: Clicked by text:", btnText);
+            } else {
+              console.log("⚠️ Visual Guard: Could not find button text:", btnText);
+            }
+            await delay(1500);
+          }
+        }
+
+        if (guardResult.action === "swipe") {
+          const direction = guardResult.swipe_direction;
+          if (direction === "up") {
+            await page.mouse.move(195, 400);
+            await page.mouse.down();
+            await page.mouse.move(195, 100, { steps: 10 });
+            await page.mouse.up();
+          } else if (direction === "down") {
+            await page.mouse.move(195, 100);
+            await page.mouse.down();
+            await page.mouse.move(195, 400, { steps: 10 });
+            await page.mouse.up();
+          }
+          await delay(1000);
+        }
+      } catch (actionErr) {
+        console.error("❌ Visual Guard: Clearance action failed:", actionErr.message);
+        await delay(1000);
+      }
+    }
+    // Continue loop to re-scan after clearance
+  }
+
+  // Max attempts reached
+  console.error("❌ Visual Guard: Could not clear UI after", MAX_CLEARANCE_ATTEMPTS, "attempts");
+  return { clear: false, attempts };
+}
+
+// ── Retry wrapper that runs Visual Guard before critical actions ──────────────
+
+async function retryWithGuard(page, actionFn) {
+  const guard = await visualGuard(page);
+  if (!guard.clear) {
+    throw new Error("UI not clear for action after " + guard.attempts + " guard attempts");
+  }
+  return await actionFn();
 }
 
 async function askGemini(page, instruction, context) {
@@ -168,8 +345,8 @@ async function askGemini(page, instruction, context) {
     fullPage: false,
   });
 
-  const model = await getGeminiModel();
-  if (!model) {
+  const client = await getGeminiClient();
+  if (!client) {
     return {
       status: "error",
       action: "fail",
@@ -177,7 +354,7 @@ async function askGemini(page, instruction, context) {
     };
   }
 
-  const prompt = `You are an intelligent automation agent controlling a Puppeteer browser to place a bet on Sportybet Nigeria.
+  const prompt = `You are an intelligent automation agent controlling a Puppeteer browser to place a bet on $market Nigeria.
 
 CURRENT TASK: ${instruction}
 
@@ -211,18 +388,24 @@ RULES:
 9. Never click "No, it's not me" or "Protect My Account"
 10. Always prioritise dismissing popups before interacting with betslip
 11. If stake input is empty → type the stake amount
-12. The stake amount to use is: ${context.stakeAmount}`;
+12. The stake amount to use is: ${context.stakeAmount}
+13. The Visual Guard has already cleared major obstructions. If you still see any popup, click the dismiss button immediately.
+14. For "Account Protection" popup: ALWAYS click "Yes, it's me" — coordinates are usually bottom right of popup
+15. For "Secure Your Account" popup: ALWAYS click "Skip For Now"
+16. For any loading spinner or skeleton screen: Set action: wait, waitMs: 3000
+17. If page appears blank or loading: Set action: wait, waitMs: 2000
+18. The Visual Guard pre-processor already ran so main UI should be clear for betting`;
 
-  const imagePart = {
-    inlineData: {
-      data: screenshot,
-      mimeType: "image/png",
-    },
-  };
 
   try {
-    const result = await model.generateContent([prompt, imagePart]);
-    const responseText = result.response.text();
+    const result = await client.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        { text: prompt },
+        { inlineData: { data: screenshot, mimeType: "image/png" } },
+      ],
+    });
+    const responseText = result.text;
 
     const cleaned = responseText
       .replace(/```json/g, "")
@@ -243,7 +426,7 @@ RULES:
 
 /**
  * Checks for and accepts any odds changes.
- * Sportybet shows this as a green button spanning the place-bet div,
+ * $market shows this as a green button spanning the place-bet div,
  * or as text changing to "Accept Changes".
  */
 async function acceptOddsChanges(page) {
@@ -278,7 +461,7 @@ async function acceptOddsChanges(page) {
 }
 
 /**
- * Programmatically dismiss known Sportybet popups using hardcoded CSS selectors.
+ * Programmatically dismiss known $market popups using hardcoded CSS selectors.
  */
 async function dismissAllPopups(page) {
   let dismissed = 0;
@@ -292,7 +475,7 @@ async function dismissAllPopups(page) {
       // Check if the popup is visible by looking for "Location Preference" text
       const allText = document.body?.innerText || "";
       if (allText.includes("Location Preference")) {
-        // Try the exact Sportybet Ant Framework button class
+        // Try the exact $market Ant Framework button class
         const confirmBtn =
           document.querySelector("button.af-button.af-button--primary") ||
           document.querySelector("button.af-button--primary") ||
@@ -408,14 +591,14 @@ async function dismissAllPopups(page) {
 }
 
 /**
- * Type a number using Sportybet's on-screen keyboard.
+ * Type a number using $market's on-screen keyboard.
  * The betslip uses a custom keyboard, not a real <input>, so we
  * simulate tapping each digit key individually.
  */
 async function typeStakeViaKeyboard(page, amount) {
   const digits = amount.toString().split("");
   for (const digit of digits) {
-    // Sportybet keyboard keys have class "m-keybord-key" with data-value or text content
+    // $market keyboard keys have class "m-keybord-key" with data-value or text content
     const typed = await page.evaluate((d) => {
       // Try multiple approaches to find keyboard keys
       const keys = document.querySelectorAll(
@@ -451,10 +634,10 @@ async function typeStakeViaKeyboard(page, amount) {
 }
 
 /**
- * Place a bet using hardcoded CSS selectors extracted from Sportybet's mobile site.
+ * Place a bet using hardcoded CSS selectors extracted from $market's mobile site.
  * Falls back to AI vision agent if the hardcoded flow fails.
  *
- * HARDCODED SELECTORS (manually extracted from live Sportybet DOM):
+ * HARDCODED SELECTORS (manually extracted from live $market DOM):
  *   Stake input:     span.m-keybord-input:nth-child(3)
  *   Place Bet btn:   div.place-bet
  *   Confirm btn:     button.flexibet-confirm
@@ -463,7 +646,14 @@ async function typeStakeViaKeyboard(page, amount) {
 async function placeBetWithAI(page, betLink, stakeAmount, signal, bot) {
   console.log("🤖 AI agent starting bet placement...");
   console.log("🔗 Link:", betLink);
-  console.log("💰 Stake: ₦" + stakeAmount);
+  console.log("💰 Stake: £" + stakeAmount);
+
+  // ── VISUAL GUARD: Pre-check before navigating ──────────────────────────────
+  console.log("🛡️ Running Visual Guard before navigation...");
+  const preNavGuard = await visualGuard(page);
+  if (!preNavGuard.clear) {
+    console.error("❌ Visual Guard: UI not clear before navigation — attempting anyway");
+  }
 
   await page.goto(betLink, {
     waitUntil: "networkidle2",
@@ -471,7 +661,7 @@ async function placeBetWithAI(page, betLink, stakeAmount, signal, bot) {
   });
   await delay(3000);
 
-  // ── STEP 0: Programmatically dismiss known popups ─────────────────────────
+  // ── STEP 0a: Programmatically dismiss known popups ────────────────────────
   console.log("🔍 Checking for known popups...");
   const popupsDismissed = await dismissAllPopups(page);
   if (popupsDismissed > 0) {
@@ -479,8 +669,17 @@ async function placeBetWithAI(page, betLink, stakeAmount, signal, bot) {
     await delay(2000);
   }
 
+  // ── STEP 0b: Visual Guard after page load ─────────────────────────────────
+  console.log("🛡️ Running Visual Guard after page load...");
+  const postLoadGuard = await visualGuard(page);
+  if (!postLoadGuard.clear) {
+    console.error("❌ Visual Guard: Could not clear UI after page load");
+    return { betPlaced: false, lastError: "Could not clear UI obstructions after page load", steps: 0 };
+  }
+  console.log("🤖 Main bot: Proceeding with bet placement...");
+
   // ══════════════════════════════════════════════════════════════════════════
-  //  HARDCODED FLOW — Use exact CSS selectors from the live Sportybet site
+  //  HARDCODED FLOW — Use exact CSS selectors from the live $market site
   // ══════════════════════════════════════════════════════════════════════════
   console.log("\n🎯 Attempting HARDCODED selector flow...");
 
@@ -501,7 +700,7 @@ async function placeBetWithAI(page, betLink, stakeAmount, signal, bot) {
       await delay(800);
 
       // ── Step 2: Type the stake amount via on-screen keyboard ───────────
-      console.log("📝 Step 2: Typing stake amount: ₦" + stakeAmount);
+      console.log("📝 Step 2: Typing stake amount: £" + stakeAmount);
 
       // First clear any existing value by clicking "C" or delete key
       const cleared = await page.evaluate(() => {
@@ -711,7 +910,7 @@ async function placeBetWithAI(page, betLink, stakeAmount, signal, bot) {
   // ══════════════════════════════════════════════════════════════════════════
 
   const context = {
-    task: "Place a bet on Sportybet",
+    task: "Place a bet on $market",
     betLink,
     stakeAmount,
     fixture: signal.home + " vs " + signal.away,
@@ -728,12 +927,18 @@ async function placeBetWithAI(page, betLink, stakeAmount, signal, bot) {
     steps++;
     console.log(`\n🤖 AI Fallback Step ${steps}/${MAX_AI_STEPS}`);
 
-    await dismissAllPopups(page);
+    // ── VISUAL GUARD: Run before every AI step ──────────────────────────────
+    console.log("🛡️ Running Visual Guard check...");
+    const guardResult = await visualGuard(page);
+    if (!guardResult.clear) {
+      console.log("⚠️ Visual Guard could not clear UI — trying dismissAllPopups fallback");
+      await dismissAllPopups(page);
+    }
 
     const decision = await askGemini(
       page,
-      `Check the current state of Sportybet. The hardcoded flow already attempted to:
-1. Enter stake ₦${stakeAmount}
+      `Check the current state of $market. The hardcoded flow already attempted to:
+1. Enter stake £${stakeAmount}
 2. Click Place Bet
 3. Click Confirm
 4. Click OK
@@ -759,7 +964,7 @@ If you see the betslip still showing without errors, try clicking the Place Bet 
     }
 
     if (decision.status === "login_required") {
-      lastError = "Session expired — reconnect Sportybet";
+      lastError = "Session expired — reconnect $market";
       break;
     }
 
@@ -838,7 +1043,7 @@ If you see the betslip still showing without errors, try clicking the Place Bet 
 // ── Bot Stats ────────────────────────────────────────────────────────────────
 
 function updateBotStats(botId, success) {
-  const sb = readSportybet();
+  const sb = read$market();
   if (!sb.bots) return;
   const bot = sb.bots.find((b) => b.id === botId);
   if (!bot) return;
@@ -848,7 +1053,7 @@ function updateBotStats(botId, success) {
     bot.settledBets = (bot.settledBets || 0) + 1;
   }
 
-  writeSportybet(sb);
+  write$market(sb);
 }
 
 // ── Main Export ──────────────────────────────────────────────────────────────
@@ -859,7 +1064,7 @@ export async function processSignalForBots(signal) {
     signal.home + " vs " + signal.away
   );
 
-  const configs = getAllSportybetConfigs();
+  const configs = getAll$marketConfigs();
   const activeUsers = configs.filter(c => c.data.connected && c.data.encodedCredentials && (c.data.bots || []).some(b => b.active));
   
   if (activeUsers.length === 0) {
@@ -892,8 +1097,8 @@ export async function processSignalForBots(signal) {
     const userId = userConfig.userId;
     console.log("\n--- Processing for user: " + userId + " ---");
 
-    const sportybet = getSportybet(userId);
-    if (!sportybet) continue;
+    const $market = get$market(userId);
+    if (!$market) continue;
 
     const activeBots = getActiveBots(userId);
     if (activeBots.length === 0) continue;
@@ -906,28 +1111,28 @@ export async function processSignalForBots(signal) {
         continue;
       }
 
-      const matchResult = signalMatchesBot(signal, bot);
+      const matchResult = signalMatchesBot(signal, bot, userId);
       if (!matchResult.match) continue;
 
-      const stakeAmount = calculateStake(bot, sportybet);
+      const stakeAmount = calculateStake(bot, $market);
 
       if (stakeAmount < 100) {
-        appendLog(userId, { type: "ERROR", fixtureId: signal.fixtureId, match: signal.home + " v " + signal.away, botName: bot.name, botId: bot.id, market: signal.betType, stake: stakeAmount, betLink, status: "Stake too small: ₦" + stakeAmount + " (minimum ₦100)", simulation: matchResult.simulation });
+        appendLog(userId, { type: "ERROR", fixtureId: signal.fixtureId, match: signal.home + " v " + signal.away, botName: bot.name, botId: bot.id, market: signal.betType, stake: stakeAmount, betLink, status: "Stake too small: £" + stakeAmount + " (minimum £100)", simulation: matchResult.simulation });
         continue;
       }
 
       appendLog(userId, { type: "ENTRY", fixtureId: signal.fixtureId, match: signal.home + " v " + signal.away, league: signal.league, botName: bot.name, botId: bot.id, market: signal.betType, confidence: signal.confidence, minute: signal.minute, stake: stakeAmount, betLink, status: "Attempting bet placement...", simulation: matchResult.simulation });
 
       if (matchResult.simulation) {
-        appendLog(userId, { type: "SUCCESS", fixtureId: signal.fixtureId, match: signal.home + " v " + signal.away, league: signal.league, botName: bot.name, botId: bot.id, market: signal.betType, confidence: signal.confidence, minute: signal.minute, stake: stakeAmount, betLink, status: "Simulated bet: ₦" + stakeAmount.toLocaleString() + " on " + signal.betType, simulation: true });
+        appendLog(userId, { type: "SUCCESS", fixtureId: signal.fixtureId, match: signal.home + " v " + signal.away, league: signal.league, botName: bot.name, botId: bot.id, market: signal.betType, confidence: signal.confidence, minute: signal.minute, stake: stakeAmount, betLink, status: "Simulated bet: £" + stakeAmount.toLocaleString() + " on " + signal.betType, simulation: true });
         continue;
       }
 
       let browser = null;
       try {
         activeBetCount++;
-        const { loginSportybet } = await import("./sportybetScraper.js");
-        const loginResult = await loginSportybet(sportybet.phone, sportybet.password);
+        const { login$market } = await import("./$marketScraper.js");
+        const loginResult = await login$market($market.phone, $market.password);
 
         if (!loginResult.success) {
           appendLog(userId, { type: "ERROR", fixtureId: signal.fixtureId, match: signal.home + " v " + signal.away, botName: bot.name, botId: bot.id, market: signal.betType, stake: stakeAmount, betLink, status: "Login failed: " + loginResult.error, simulation: false });
@@ -949,7 +1154,7 @@ export async function processSignalForBots(signal) {
         }
 
         if (result.betPlaced) {
-          appendLog(userId, { type: "SUCCESS", fixtureId: signal.fixtureId, match: signal.home + " v " + signal.away, league: signal.league, botName: bot.name, botId: bot.id, market: signal.betType, confidence: signal.confidence, minute: signal.minute, stake: stakeAmount, betLink, status: "✅ Bet placed: ₦" + stakeAmount.toLocaleString() + " on " + signal.betType, aiSteps: result.steps, simulation: false });
+          appendLog(userId, { type: "SUCCESS", fixtureId: signal.fixtureId, match: signal.home + " v " + signal.away, league: signal.league, botName: bot.name, botId: bot.id, market: signal.betType, confidence: signal.confidence, minute: signal.minute, stake: stakeAmount, betLink, status: "✅ Bet placed: £" + stakeAmount.toLocaleString() + " on " + signal.betType, aiSteps: result.steps, simulation: false });
         } else {
           appendLog(userId, { type: "ERROR", fixtureId: signal.fixtureId, match: signal.home + " v " + signal.away, league: signal.league, botName: bot.name, botId: bot.id, market: signal.betType, stake: stakeAmount, betLink, status: "❌ Failed: " + result.lastError, aiSteps: result.steps, simulation: false });
         }
@@ -967,13 +1172,13 @@ export async function testAutomation(userId, betLink, stakeAmount = 100) {
   console.log("\n════════════════════════════════════════════════");
   console.log("🧪 TEST AUTOMATION — Manual Trigger");
   console.log("   Link:", betLink);
-  console.log("   Stake: ₦" + stakeAmount);
+  console.log("   Stake: £" + stakeAmount);
   console.log("════════════════════════════════════════════════\n");
 
-  // Step 1 — Check Sportybet connected
-  const sportybet = getSportybet(userId);
-  if (!sportybet) {
-    const err = "Sportybet not connected — go to Integration tab and connect first";
+  // Step 1 — Check $market connected
+  const $market = get$market(userId);
+  if (!$market) {
+    const err = "$market not connected — go to Integration tab and connect first";
     console.log("❌", err);
     appendLog(userId, {
       type: "ERROR",
@@ -990,8 +1195,8 @@ export async function testAutomation(userId, betLink, stakeAmount = 100) {
   }
 
   // Step 2 — Check Gemini API key
-  const model = await getGeminiModel();
-  if (!model) {
+  const client = await getGeminiClient();
+  if (!client) {
     const err = "Gemini API key not configured — add it in .env or Admin Panel settings";
     console.log("❌", err);
     appendLog(userId, {
@@ -1008,10 +1213,10 @@ export async function testAutomation(userId, betLink, stakeAmount = 100) {
     return { success: false, error: err };
   }
 
-  // Step 3 — Login to Sportybet
+  // Step 3 — Login to $market
   let browser = null;
   try {
-    const { loginSportybet } = await import("./sportybetScraper.js");
+    const { login$market } = await import("./$marketScraper.js");
 
     console.log("🔄 Launching browser...");
     appendLog(userId, {
@@ -1026,7 +1231,7 @@ export async function testAutomation(userId, betLink, stakeAmount = 100) {
       simulation: false,
     });
 
-    const loginResult = await loginSportybet(sportybet.phone, sportybet.password);
+    const loginResult = await login$market($market.phone, $market.password);
 
     if (!loginResult.success) {
       const err = "Login failed: " + loginResult.error;

@@ -135,43 +135,43 @@ export default function Opportunities({ signals, liveMatches }) {
                 )}
 
                 {/* Booking Codes Section */}
-                {(signal.sportybet?.betLink || signal.bookingCodes?.bet9ja || signal.sportybet?.shareCode) ? (
+                {(signal.$market?.betLink || signal.bookingCodes?.$market || signal.$market?.shareCode) ? (
                   <div className="border-t border-slate-800 bg-slate-900/60 px-4 py-3">
                     <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Book This Bet</div>
                     <div className="flex gap-2 flex-wrap">
-                      {/* SportyBet */}
-                      {signal.sportybet?.betLink && (
+                      {/* $market */}
+                      {signal.$market?.betLink && (
                         <button
-                          onClick={(e) => { e.stopPropagation(); window.open(signal.sportybet.betLink, '_blank'); }}
+                          onClick={(e) => { e.stopPropagation(); window.open(signal.$market.betLink, '_blank'); }}
                           className="flex-1 min-w-[120px] flex items-center justify-center gap-1.5 bg-[#16a34a] hover:bg-green-600 text-white font-bold text-xs py-2.5 px-3 rounded-xl transition-colors"
-                          title={`SportyBet code: ${signal.sportybet.shareCode}`}
+                          title={`$market code: ${signal.$market.shareCode}`}
                         >
                           <span>⚽</span>
-                          <span>SportyBet</span>
-                          {signal.sportybet.shareCode && (
-                            <span className="bg-green-800/60 px-1.5 py-0.5 rounded text-[10px] font-mono">{signal.sportybet.shareCode}</span>
+                          <span>$market</span>
+                          {signal.$market.shareCode && (
+                            <span className="bg-green-800/60 px-1.5 py-0.5 rounded text-[10px] font-mono">{signal.$market.shareCode}</span>
                           )}
                         </button>
                       )}
-                      {/* Bet9ja */}
-                      {(signal.bookingCodes?.bet9ja) && (
+                      {/* $market */}
+                      {(signal.bookingCodes?.$market) && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigator.clipboard?.writeText(signal.bookingCodes.bet9ja).catch(() => {});
-                            window.open(`https://web.bet9ja.com/Sport/Coupon/${signal.bookingCodes.bet9ja}`, '_blank');
+                            navigator.clipboard?.writeText(signal.bookingCodes.$market).catch(() => {});
+                            window.open(`https://web.$market.com/Sport/Coupon/${signal.bookingCodes.$market}`, '_blank');
                           }}
                           className="flex-1 min-w-[120px] flex items-center justify-center gap-1.5 bg-[#007b5e] hover:bg-emerald-700 text-white font-bold text-xs py-2.5 px-3 rounded-xl transition-colors"
-                          title={`Bet9ja code: ${signal.bookingCodes.bet9ja}`}
+                          title={`$market code: ${signal.bookingCodes.$market}`}
                         >
                           <span>🎯</span>
-                          <span>Bet9ja</span>
-                          <span className="bg-emerald-900/60 px-1.5 py-0.5 rounded text-[10px] font-mono">{signal.bookingCodes.bet9ja}</span>
+                          <span>$market</span>
+                          <span className="bg-emerald-900/60 px-1.5 py-0.5 rounded text-[10px] font-mono">{signal.bookingCodes.$market}</span>
                         </button>
                       )}
                     </div>
                     <div className="text-[10px] text-slate-600 mt-1.5 text-center">
-                      {signal.sportybet?.market && `Market: ${signal.sportybet.market}`} · Click to open betslip
+                      {signal.$market?.market && `Market: ${signal.$market.market}`} · Click to open betslip
                     </div>
                   </div>
                 ) : (
@@ -182,7 +182,7 @@ export default function Opportunities({ signals, liveMatches }) {
                         className="w-full flex items-center justify-center gap-1.5 font-bold text-xs py-2.5 px-3 rounded-xl cursor-not-allowed"
                         style={{ backgroundColor: '#374151', color: '#9ca3af', height: '44px', borderRadius: '8px' }}
                       >
-                        🔄 Getting Sportybet code...
+                        🔄 Getting $market code...
                       </button>
                     </div>
                   </div>

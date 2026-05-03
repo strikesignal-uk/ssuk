@@ -44,7 +44,7 @@ export default function SettingsPage({ user, onUserUpdate }) {
 
   useEffect(() => {
     if (user?.id) {
-      fetch(`${API}/api/subscription/status?userId=${user.id}`)
+      fetch(`${API}/api/subscription/status?userId=${user.id}&email=${encodeURIComponent(user.email)}`)
         .then(res => res.json())
         .then(data => setSub(data))
         .catch(console.error);

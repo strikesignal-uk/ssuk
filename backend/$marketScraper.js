@@ -3,9 +3,71 @@ import fs from "fs"
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-const SESSION_FILE = "./sportybet-session.json"
-const MOBILE_URL = "https://www.sportybet.com/ng/m/"
-const LOGIN_URL = "https://www.sportybet.com/ng/m/#login"
+const SESSION_FILE = "./$market-session.json"
+const DESKTOP_URL = "https://www.$market.com/ng/"
+const LOGIN_URL = "https://www.$market.com/ng/"
+
+// ── Clear initial popups after any page navigation ──────────────────────────
+async function clearInitialPopups(page) {
+  await delay(2000);
+
+  const dismissSelectors = [
+    "[aria-label='Close']",
+    "[aria-label='Dismiss']",
+    ".close-btn",
+    ".modal-close",
+    ".popup-close",
+    ".af-modal-close",
+    ".m-dialog-close",
+    "button[class*='close']",
+    "button[class*='dismiss']",
+    ".cookie-accept",
+    "[data-dismiss='modal']",
+    "div.drag-bar-wrapper",
+  ];
+
+  for (const selector of dismissSelectors) {
+    try {
+      const el = await page.$(selector);
+      if (el) {
+        await el.click();
+        console.log("✅ clearInitialPopups: Dismissed:", selector);
+        await delay(500);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // Try clicking common dismiss button text
+  try {
+    await page.evaluate(() => {
+      const texts = ['confirm', 'skip', 'skip for now', 'ok', 'got it', 'accept', 'close'];
+      const allEls = document.querySelectorAll('button, a, span, div');
+      for (const el of allEls) {
+        const t = el.textContent.trim().toLowerCase();
+        if (texts.includes(t) && el.offsetParent !== null && el.offsetWidth > 10) {
+          // Only click if it looks like a popup button (small text, visible)
+          const rect = el.getBoundingClientRect();
+          if (rect.width < 300 && rect.height < 80) {
+            el.click();
+            break;
+          }
+        }
+      }
+    });
+  } catch {
+    // ignore
+  }
+
+  // Also press Escape key to close any modal
+  try {
+    await page.keyboard.press("Escape");
+    await delay(500);
+  } catch {
+    // ignore
+  }
+}
 
 async function launchBrowser() {
   const browser = await puppeteer.launch({
@@ -20,22 +82,23 @@ async function launchBrowser() {
       "--no-first-run",
       "--no-zygote",
       "--disable-infobars",
-      "--window-size=420,900"
+      "--window-size=1280,800"
     ]
   })
 
   const page = await browser.newPage()
 
+  // ── Desktop viewport — more stable, fewer popups ──────────────────────────
   await page.setViewport({
-    width: 390,
-    height: 844,
-    isMobile: true,
-    hasTouch: true,
-    deviceScaleFactor: 2
+    width: 1280,
+    height: 800,
+    isMobile: false,
+    hasTouch: false,
+    deviceScaleFactor: 1
   })
 
   await page.setUserAgent(
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
   )
 
   await page.evaluateOnNewDocument(() => {
@@ -85,10 +148,11 @@ function loadSession(phone) {
 }
 
 async function findBalance(page) {
-  // Try multiple possible selectors for balance
+  // Desktop balance selectors
   const balanceSelectors = [
-    ".m-balance-amount",
-    ".m-balance",
+    ".balance-amount",
+    ".user-balance",
+    ".header-balance",
     "[class*='balance']",
     "[class*='Balance']"
   ];
@@ -97,7 +161,7 @@ async function findBalance(page) {
     const el = await page.$(sel);
     if (el) {
       const text = await page.$eval(sel, e => e.textContent.trim());
-      if (text && (text.includes("NGN") || text.match(/[\d,]+\.\d{2}/))) {
+      if (text && (text.includes("GBP") || text.match(/[\d,]+\.\d{2}/))) {
         return text;
       }
     }
@@ -108,7 +172,7 @@ async function findBalance(page) {
     const allEls = document.querySelectorAll('*');
     for (const el of allEls) {
       const t = el.textContent.trim();
-      if (t.match(/^NGN\s*[\d,]+\.\d{2}$/) || t.match(/^[\d,]+\.\d{2}$/)) {
+      if (t.match(/^GBP\s*[\d,]+\.\d{2}$/) || t.match(/^[\d,]+\.\d{2}$/)) {
         if (el.children.length === 0 || el.children.length === 1) {
           return t;
         }
@@ -122,11 +186,14 @@ async function findBalance(page) {
 
 async function isLoggedIn(page) {
   try {
-    await page.goto(MOBILE_URL, {
+    await page.goto(DESKTOP_URL, {
       waitUntil: "networkidle2",
       timeout: 20000
     })
     await delay(3000)
+
+    // Clear any initial popups on landing
+    await clearInitialPopups(page)
 
     const balance = await findBalance(page);
     if (balance) {
@@ -153,11 +220,11 @@ async function isLoggedIn(page) {
   }
 }
 
-async function loginSportybet(phone, password) {
+async function login$market(phone, password) {
   let browser = null
 
   try {
-    console.log("🔄 Attempting Sportybet login...")
+    console.log("🔄 Attempting $market login...")
 
     const savedCookies = loadSession(phone)
 
@@ -181,12 +248,15 @@ async function loginSportybet(phone, password) {
     browser = b2
 
     // Navigate directly to login URL
-    console.log("🔄 Navigating to Sportybet login page...")
+    console.log("🔄 Navigating to $market login page...")
     await p2.goto(LOGIN_URL, {
       waitUntil: "networkidle2",
       timeout: 25000
     })
     await delay(3000)
+
+    // Clear any initial popups on landing
+    await clearInitialPopups(p2)
 
     // Check for Cloudflare
     const pageContent = await p2.content()
@@ -195,8 +265,10 @@ async function loginSportybet(phone, password) {
       await delay(8000)
     }
 
-    // Try to find the login modal or form - look for phone input
-    let phoneInput = await p2.$("input[placeholder='Mobile Number']");
+    // Try to find the login form — desktop uses a modal or header login button
+    let phoneInput = await p2.$("input[placeholder='Mobile Number']") ||
+                     await p2.$("input[placeholder='Phone Number']") ||
+                     await p2.$("input[type='tel']");
     
     if (!phoneInput) {
       // If modal not open, try clicking any login button
@@ -239,7 +311,7 @@ async function loginSportybet(phone, password) {
       const html = await p2.evaluate(() => document.body.innerHTML.substring(0, 2000));
       console.log("Page HTML preview:", html);
       await browser.close();
-      return { success: false, error: "Could not find login form. Sportybet may be blocking automated access." };
+      return { success: false, error: "Could not find login form. $market may be blocking automated access." };
     }
 
     console.log("✅ Found phone input field");
@@ -266,13 +338,15 @@ async function loginSportybet(phone, password) {
 
     // Find and click submit button
     const submitClicked = await p2.evaluate(() => {
-      // Try multiple approaches to find the submit button
+      // Try multiple approaches to find the submit button — desktop selectors
       const selectors = [
-        'button.m-login-btn',
+        'button.login-btn',
+        'button.submit-btn',
+        '.login-submit',
+        '#loginModal button[type="submit"]',
+        'button[type="submit"]',
+        'button.m-login-btn',   // fallback in case some desktop pages still use this
         'button.m-submit',
-        '.m-submit',
-        '#popupLogin button',
-        'button[type="submit"]'
       ];
       
       for (const sel of selectors) {
@@ -287,7 +361,7 @@ async function loginSportybet(phone, password) {
       const buttons = document.querySelectorAll('button, div[class*="submit"], a[class*="submit"]');
       for (const btn of buttons) {
         const text = btn.textContent.trim().toLowerCase();
-        if (text === 'login' || text === 'log in') {
+        if (text === 'login' || text === 'log in' || text === 'sign in') {
           btn.click();
           return 'text:' + text;
         }
@@ -340,9 +414,9 @@ async function fetchBalance(phone, password) {
   let browser = null
 
   try {
-    console.log("🔄 Fetching Sportybet balance...")
+    console.log("🔄 Fetching $market balance...")
 
-    const loginResult = await loginSportybet(phone, password)
+    const loginResult = await login$market(phone, password)
 
     if (!loginResult.success) {
       return { success: false, balance: 0, error: loginResult.error }
@@ -358,23 +432,23 @@ async function fetchBalance(phone, password) {
     if (!rawBalance) {
       console.log("⚠️ Balance element not found after login");
       await browser.close();
-      return { success: true, balance: 0, balanceFormatted: "₦0.00", fetchedAt: new Date().toISOString() };
+      return { success: true, balance: 0, balanceFormatted: "£0.00", fetchedAt: new Date().toISOString() };
     }
     
     console.log("💰 Raw balance text:", rawBalance)
 
-    // Parse balance: remove NGN, ₦, commas, spaces
-    const cleaned = rawBalance.replace(/[₦\s,NGN]/g, "").trim()
+    // Parse balance: remove GBP, £, commas, spaces
+    const cleaned = rawBalance.replace(/[£\s,GBP]/g, "").trim()
     const balance = parseFloat(cleaned) || 0
 
     await browser.close()
 
-    console.log("✅ Balance fetched: ₦" + balance.toLocaleString())
+    console.log("✅ Balance fetched: £" + balance.toLocaleString())
 
     return {
       success: true,
       balance,
-      balanceFormatted: "₦" + balance.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      balanceFormatted: "£" + balance.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       fetchedAt: new Date().toISOString()
     }
 
@@ -385,4 +459,4 @@ async function fetchBalance(phone, password) {
   }
 }
 
-export { loginSportybet, fetchBalance }
+export { login$market, fetchBalance }

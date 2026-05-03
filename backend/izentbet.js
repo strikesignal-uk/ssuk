@@ -49,7 +49,7 @@ async function fetchWithTimeout(url, options, timeoutMs) {
 }
 
 /**
- * Try to extract a SportyBet share code from ALL possible response locations.
+ * Try to extract a $market share code from ALL possible response locations.
  * Returns the share code string or null.
  */
 function extractShareCode(data) {
@@ -60,10 +60,10 @@ function extractShareCode(data) {
 
   console.log("🔍 Searching for share code in:", JSON.stringify(data).slice(0, 400));
 
-  // ── Path 1: data.data.converted_codes.sportybet ──────────────────────────
-  const code1 = data?.data?.converted_codes?.sportybet;
+  // ── Path 1: data.data.converted_codes.$market ──────────────────────────
+  const code1 = data?.data?.converted_codes?.$market;
   if (code1) {
-    console.log("✅ Found in data.data.converted_codes.sportybet:", code1);
+    console.log("✅ Found in data.data.converted_codes.$market:", code1);
     return code1;
   }
 
@@ -74,10 +74,10 @@ function extractShareCode(data) {
     return code2;
   }
 
-  // ── Path 3: data.converted_codes.sportybet ────────────────────────────────
-  const code3 = data?.converted_codes?.sportybet;
+  // ── Path 3: data.converted_codes.$market ────────────────────────────────
+  const code3 = data?.converted_codes?.$market;
   if (code3) {
-    console.log("✅ Found in data.converted_codes.sportybet:", code3);
+    console.log("✅ Found in data.converted_codes.$market:", code3);
     return code3;
   }
 
@@ -105,9 +105,9 @@ function extractShareCode(data) {
         console.log("✅ Found in sel.share_code:", sel.share_code);
         return sel.share_code;
       }
-      if (sel.sportybet_code) {
-        console.log("✅ Found in sel.sportybet_code:", sel.sportybet_code);
-        return sel.sportybet_code;
+      if (sel.$market_code) {
+        console.log("✅ Found in sel.$market_code:", sel.$market_code);
+        return sel.$market_code;
       }
       if (sel.shareCode) {
         console.log("✅ Found in sel.shareCode:", sel.shareCode);
@@ -128,7 +128,7 @@ function extractShareCode(data) {
     }
   }
 
-  // ── Path 6: extract from sportybet_url anywhere in response ───────────────
+  // ── Path 6: extract from $market_url anywhere in response ───────────────
   const fullStr = JSON.stringify(data);
 
   const urlMatch = fullStr.match(/shareCode=([A-Z0-9]+)/i);
@@ -137,10 +137,10 @@ function extractShareCode(data) {
     return urlMatch[1];
   }
 
-  const sportybetUrlMatch = fullStr.match(/sportybet\.com[^"]*?([A-Z0-9]{6})/i);
-  if (sportybetUrlMatch) {
-    console.log("✅ Found code in sportybet URL:", sportybetUrlMatch[1]);
-    return sportybetUrlMatch[1];
+  const $marketUrlMatch = fullStr.match(/$market\.com[^"]*?([A-Z0-9]{6})/i);
+  if ($marketUrlMatch) {
+    console.log("✅ Found code in $market URL:", $marketUrlMatch[1]);
+    return $marketUrlMatch[1];
   }
 
   // ── Path 7: search message text for a code pattern ────────────────────────
@@ -157,8 +157,8 @@ function extractShareCode(data) {
   }
 
   // ── Path 8: brute-force search entire response for booking code pattern ───
-  // Look for "booking_code":"XXXXXX" or "sportybet":"XXXXXX" patterns
-  const codeFieldMatch = fullStr.match(/"(?:booking_code|sportybet|share_code|shareCode|code)"\s*:\s*"([A-Z0-9]{5,8})"/i);
+  // Look for "booking_code":"XXXXXX" or "$market":"XXXXXX" patterns
+  const codeFieldMatch = fullStr.match(/"(?:booking_code|$market|share_code|shareCode|code)"\s*:\s*"([A-Z0-9]{5,8})"/i);
   if (codeFieldMatch) {
     console.log("✅ Found code via field pattern match:", codeFieldMatch[1]);
     return codeFieldMatch[1];
@@ -170,7 +170,7 @@ function extractShareCode(data) {
 }
 
 /**
- * Convert a fixture to a SportyBet booking code using the IzentBet AI endpoint.
+ * Convert a fixture to a $market booking code using the IzentBet AI endpoint.
  * Makes up to 3 attempts with progressively more explicit prompts.
  * Includes retry delays and 45-second timeout per attempt.
  *
@@ -179,11 +179,11 @@ function extractShareCode(data) {
  * @param {string} betType - Raw betType e.g. "Back Over 1.5 Goals"
  * @returns {Promise<{success:boolean, shareCode:string|null, betLink:string|null, market:string, totalOdds:number|null, error:string|null}>}
  */
-export async function convertToSportybet(home, away, betType) {
+export async function convertTo$market(home, away, betType) {
   const market = cleanMarket(betType);
 
   console.log(`\n════════════════════════════════════════════════`);
-  console.log(`🔄 convertToSportybet() called`);
+  console.log(`🔄 convertTo$market() called`);
   console.log(`   Home: ${home}`);
   console.log(`   Away: ${away}`);
   console.log(`   Market: ${market}`);
@@ -196,10 +196,10 @@ export async function convertToSportybet(home, away, betType) {
     `${home} vs ${away} ${market}`,
 
     // Attempt 2 — explicit request for booking code
-    `Convert this fixture to SportyBet booking code:\n${home} vs ${away} - ${market}`,
+    `Convert this fixture to $market booking code:\n${home} vs ${away} - ${market}`,
 
     // Attempt 3 — very explicit with instructions
-    `I need the SportyBet Nigeria booking code for this exact match: ${home} vs ${away}. Market: ${market}. Please search SportyBet Nigeria and return the booking/share code.`,
+    `I need the $market Nigeria booking code for this exact match: ${home} vs ${away}. Market: ${market}. Please search $market Nigeria and return the booking/share code.`,
   ];
 
   // Delay between retries: 0s, 3s, 5s
@@ -261,7 +261,7 @@ export async function convertToSportybet(home, away, betType) {
       const shareCode = extractShareCode(data);
 
       if (shareCode) {
-        const betLink = `https://www.sportybet.com/ng/m/?shareCode=${shareCode}&c=ng#betslip`;
+        const betLink = `https://www.$market.com/ng/m/?shareCode=${shareCode}&c=ng#betslip`;
         const totalOdds = data?.data?.total_odds || null;
 
         console.log(`✅ Share code extracted: ${shareCode}`);
@@ -292,31 +292,31 @@ export async function convertToSportybet(home, away, betType) {
     betLink: null,
     market,
     totalOdds: null,
-    error: 'Could not extract Sportybet code after 3 attempts',
+    error: 'Could not extract $market code after 3 attempts',
   };
 }
 
 /**
- * Fetch SportyBet + Bet9ja booking codes from the IzentBet API
+ * Fetch $market + $market booking codes from the IzentBet API
  * for a single signal. Uses the AI endpoint directly.
  *
  * @param {Object} signal  – signal object with home, away, league, betType fields
- * @returns {Promise<{sportybet: string|null, sportybet_url: string|null, bet9ja: string|null}|null>}
+ * @returns {Promise<{$market: string|null, $market_url: string|null, $market: string|null}|null>}
  */
 export async function getIzentBetCodes(signal) {
   console.log(`🔄 getIzentBetCodes() — ${signal.home} vs ${signal.away}`);
 
-  const result = await convertToSportybet(signal.home, signal.away, signal.betType);
+  const result = await convertTo$market(signal.home, signal.away, signal.betType);
 
   if (result.success) {
-    console.log(`✅ Sportybet link ready: ${result.betLink}`);
+    console.log(`✅ $market link ready: ${result.betLink}`);
     return {
-      sportybet: result.shareCode,
-      sportybet_url: result.betLink,
-      bet9ja: null,
+      $market: result.shareCode,
+      $market_url: result.betLink,
+      $market: null,
     };
   }
 
-  console.warn(`⚠️ No Sportybet link for: ${signal.home} vs ${signal.away}`);
+  console.warn(`⚠️ No $market link for: ${signal.home} vs ${signal.away}`);
   return null;
 }

@@ -18,6 +18,9 @@ const PENDING_FILE = join(DATA_DIR, 'pending-transactions.json');
 const getFlwSecret = () => process.env.FLUTTERWAVE_SECRET_KEY;
 const BASE_URL = "https://api.flutterwave.com/v3";
 
+// Admin email — always gets full Pro access, no subscription needed
+const ADMIN_EMAIL = "kodedmag@gmail.com";
+
 function readJSON(path, defaultVal = []) {
   try {
     if (!fs.existsSync(path)) return defaultVal;
@@ -31,7 +34,12 @@ function writeJSON(path, data) {
   fs.writeFileSync(path, JSON.stringify(data, null, 2), 'utf-8');
 }
 
-export async function getUserSubscription(userId) {
+export async function getUserSubscription(userId, userEmail) {
+  // Admin is always Pro — no subscription required
+  if (userEmail && userEmail.toLowerCase() === ADMIN_EMAIL) {
+    return { plan: "pro", active: true, admin: true, expiresAt: "2099-12-31T23:59:59Z" };
+  }
+
   if (isUsingDB()) {
     try {
       const { rows } = await query('SELECT * FROM subscriptions WHERE user_id = $1', [userId]);
@@ -137,7 +145,7 @@ export async function initiatePayment(user, plan) {
   const payload = {
     tx_ref: txRef,
     amount: amount,
-    currency: "NGN",
+    currency: "GBP",
     redirect_url: "https://strikesignal.pro/payment/success",
     meta: {
       userId: user.id,
@@ -152,11 +160,11 @@ export async function initiatePayment(user, plan) {
     customizations: {
       title: "StrikeSignal Pro",
       description: plan === "annual" ?
-        "StrikeSignal Pro Annual — ₦45,000/year" :
-        "StrikeSignal Pro Monthly — ₦5,000/month",
+        "StrikeSignal Pro Annual — £45,000/year" :
+        "StrikeSignal Pro Monthly — £5,000/month",
       logo: "https://strikesignal.pro/logo.png"
     },
-    payment_options: "banktransfer,ussd,card"
+    payment_options: "banktransfer,ussd"
   };
 
   try {

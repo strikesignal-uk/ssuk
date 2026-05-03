@@ -9,7 +9,7 @@ import Schedule from './components/Schedule.jsx';
 import Results from './components/Results.jsx';
 import SettingsPage from './components/SettingsPage.jsx';
 import Profile from './components/Profile.jsx';
-import SportybetPage from './components/SportybetPage.jsx';
+import $marketPage from './components/$marketPage.jsx';
 import Login from './components/Login.jsx';
 import Signup from './components/Signup.jsx';
 import ResetPassword from './components/ResetPassword.jsx';
@@ -60,7 +60,7 @@ function AppShell({ user, onLogout, onUserUpdate }) {
       try {
         const [mr, sr] = await Promise.all([
           fetch(`${API_URL}/api/matches/live`),
-          fetch(`${API_URL}/api/signals/live`),
+          fetch(`${API_URL}/api/signals/live${user ? `?userId=${user.id}&email=${encodeURIComponent(user.email)}` : ''}`),
         ]);
         setLiveMatches(await mr.json());
         setSignals(await sr.json());
@@ -105,7 +105,7 @@ function AppShell({ user, onLogout, onUserUpdate }) {
           {page === 'live' && <LivePage signals={signals} liveMatches={liveMatches} onRefresh={() => window.location.reload()} />}
           {page === 'tradelog' && <TradeLog />}
           {page === 'schedule' && <Schedule />}
-          {page === 'sportybet' && <SportybetPage user={user} />}
+          {page === '$market' && <$marketPage user={user} />}
           {page === 'results' && (
             <Results results={results} stats={stats} period={period} onPeriodChange={setPeriod} />
           )}
@@ -122,7 +122,7 @@ function AppShell({ user, onLogout, onUserUpdate }) {
             { key: 'schedule',  icon: '📅', label: 'Schedule' },
             { key: 'settings',  icon: '⚙️',  label: 'Settings' },
             { key: 'blog',      icon: '📝', label: 'Blog' },
-            { key: 'sportybet', icon: '🤖', label: 'Automation' },
+            { key: '$market', icon: '🤖', label: 'Automation' },
           ].map(n => (
             <button key={n.key} onClick={() => nav(n.key)}
               className={`flex-1 flex flex-col items-center justify-center py-2 gap-1 transition-all ${

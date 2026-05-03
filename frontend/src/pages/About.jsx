@@ -42,7 +42,7 @@ export default function About() {
         <div className="max-w-5xl mx-auto px-5 text-center relative z-10">
           <h1 className="text-5xl md:text-6xl font-black tracking-tight mb-4">About StrikeSignal</h1>
           <p className="text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed">
-            Built for Nigerian bettors. Powered by data. Backed by Izent Global Ltd.
+            Built for British bettors. Powered by data. Backed by Izent Global Ltd.
           </p>
         </div>
       </section>
@@ -53,8 +53,7 @@ export default function About() {
           <div className="bg-[#0d1527] border border-white/5 rounded-3xl p-8 md:p-12">
             <h2 className="text-2xl font-black mb-6">Our Story</h2>
             <div className="space-y-4 text-slate-400 text-sm leading-relaxed">
-              <p>StrikeSignal was born out of a simple frustration — Nigerian football bettors had no access to intelligent, data-driven live betting signals built for their market.</p>
-              <p>Most signal tools were designed for UK Betfair exchange traders. None of them spoke to the millions of Nigerians placing bets daily on Sportybet, Bet9ja, and BetKing.</p>
+              <p>StrikeSignal was born out of a simple frustration — British football bettors had no access to intelligent, data-driven live betting signals specifically designed for $market.</p>
               <p>We built StrikeSignal to change that. Using real-time xG (Expected Goals) data and match pressure metrics, StrikeSignal identifies the exact moments during a live football match when a goal becomes statistically likely — and alerts you instantly.</p>
             </div>
           </div>
@@ -68,7 +67,7 @@ export default function About() {
             <div className="text-5xl mb-4">🎯</div>
             <h2 className="text-2xl font-black mb-4">Our Mission</h2>
             <p className="text-slate-300 text-sm leading-relaxed max-w-2xl mx-auto">
-              Our mission is to give every Nigerian bettor access to the same data-driven intelligence that professional traders have used in UK markets for years — built specifically for Nigerian bookmakers and Nigerian bettors.
+              Our mission is to give every British bettor access to the same data-driven intelligence that professional traders have used in markets for years — built specifically for $market.
             </p>
           </div>
         </div>
@@ -79,10 +78,10 @@ export default function About() {
         <div className="max-w-5xl mx-auto px-5">
           <h2 className="text-3xl font-black text-center mb-10">What Makes Us Different</h2>
           <div className="grid sm:grid-cols-2 gap-5">
-            <FeatureCard icon="⚡" title="Built for Nigeria" desc="Signals optimised for Sportybet and Bet9ja markets. One-click bet placement. No Betfair account needed." />
+            <FeatureCard icon="⚡" title="Built for $market" desc="Signals optimised for $market. One-click bet placement." />
             <FeatureCard icon="📊" title="Real Data, Not Tips" desc="We don't guess. Every signal is generated from live xG data and statistical models — not human tipsters." />
             <FeatureCard icon="🔒" title="Transparent Results" desc="Every signal is logged. Every result is tracked. You can see our full strike rate history — no hiding losses." />
-            <FeatureCard icon="🇳🇬" title="Nigerian First" desc="Pricing in Naira. Support in your timezone. Built by Africans, for Africans." />
+            <FeatureCard icon="🇬🇧" title="UK First" desc="Pricing in Pounds. Support in your timezone. Built for the UK market." />
           </div>
         </div>
       </section>
@@ -101,18 +100,14 @@ export default function About() {
             </div>
             <h2 className="text-xl font-black mb-6">is a product of Izent Global Ltd</h2>
             <div className="space-y-4 text-slate-400 text-sm leading-relaxed mb-8">
-              <p>Izent Global Ltd is a technology company registered in England and Wales (United Kingdom) and Nigeria (Corporate Affairs Commission).</p>
-              <p>We build digital products at the intersection of technology, finance, and sports — serving users across the UK and Nigeria.</p>
-              <p>StrikeSignal represents our commitment to making sophisticated sports intelligence tools accessible to African bettors.</p>
+              <p>Izent Global Ltd is a technology company registered in England and Wales (United Kingdom).</p>
+              <p>We build digital products at the intersection of technology, finance, and sports.</p>
+              <p>StrikeSignal represents our commitment to making sophisticated sports intelligence tools accessible to bettors.</p>
             </div>
             <div className="flex flex-wrap gap-4">
               <div className="bg-[#0a0f1e] border border-white/5 rounded-xl px-6 py-4 flex items-center gap-3">
                 <span className="text-2xl">🇬🇧</span>
                 <span className="text-sm text-slate-300 font-bold">Registered in England & Wales</span>
-              </div>
-              <div className="bg-[#0a0f1e] border border-white/5 rounded-xl px-6 py-4 flex items-center gap-3">
-                <span className="text-2xl">🇳🇬</span>
-                <span className="text-sm text-slate-300 font-bold">Registered in Nigeria (CAC)</span>
               </div>
             </div>
           </div>

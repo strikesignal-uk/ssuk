@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { getSettings } from './settings.js';
 import { getDataDir } from './storage.js';
 
@@ -84,8 +84,8 @@ StrikeSignal is a real-time football betting signal platform by Izent Global Ltd
 
 The platform:
 - Generates live football signals using xG data
-- Targets Nigerian bettors using Sportybet and Bet9ja
-- Subscription costs ₦5,000/month or ₦45,000/year
+- Targets Nigerian bettors using $market and $market
+- Subscription costs £5,000/month or £45,000/year
 - Covers Premier League, La Liga, Bundesliga, Serie A, Ligue 1
 - Has 67% average strike rate
 - Uses Sportmonks API for live match data
@@ -93,7 +93,7 @@ The platform:
 You can help users with:
 - How signals work (xG explanation, signal timing)
 - Subscription and billing questions
-- How to connect Sportybet account
+- How to connect $market account
 - Technical issues with the dashboard
 - Betting strategy questions
 
@@ -103,15 +103,14 @@ Rules:
 - If asked about legal/financial matters, recommend seeking professional advice
 - If user needs live agent, say: 'I'll connect you to our support team now. Please hold on a moment.' Then set needs_agent: true in your response
 - Keep responses concise — under 100 words
-- Use Nigerian context where relevant (₦, Sportybet etc)
+- Use Nigerian context where relevant (£, $market etc)
 - Never mention competitors negatively`;
 
-async function getModel() {
+async function getClient() {
   const settings = await getSettings();
   const apiKey = settings.geminiApiKey || process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
-  const genAI = new GoogleGenerativeAI(apiKey);
-  return genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
+  return new GoogleGenAI({ apiKey });
 }
 
 export async function getChatResponse(message, conversationHistory, sessionId) {
@@ -156,8 +155,8 @@ export async function getChatResponse(message, conversationHistory, sessionId) {
 
   // Call Gemini
   try {
-    const model = await getModel();
-    if (!model) {
+    const client = await getClient();
+    if (!client) {
       const fallback = "I'm sorry, our AI assistant is temporarily unavailable. Please try again later or type 'talk to agent' for human support.";
       session.messages.push({ role: 'assistant', content: fallback, timestamp: new Date().toISOString() });
       saveSession(session);
@@ -168,8 +167,11 @@ export async function getChatResponse(message, conversationHistory, sessionId) {
     const history = session.messages.slice(-10).map(m => `${m.role}: ${m.content}`).join('\n');
     const prompt = `${SYSTEM_PROMPT}\n\nConversation so far:\n${history}\n\nRespond to the user's latest message. Be concise and helpful.`;
 
-    const result = await model.generateContent(prompt);
-    const reply = result.response.text().trim();
+    const result = await client.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+    const reply = result.text.trim();
 
     // Check if Gemini wants to transfer
     const needsAgent = reply.toLowerCase().includes("connect you to our support team");
@@ -202,16 +204,19 @@ export function addAgentReply(sessionId, message, agentName = 'Support Team') {
 }
 
 export async function askAdminAssistant(prompt) {
-  const model = await getModel();
-  if (!model) return "Error: Gemini API key not configured in settings.";
+  const client = await getClient();
+  if (!client) return "Error: Gemini API key not configured in settings.";
   
   const systemPrompt = `You are an expert marketing and support assistant for StrikeSignal, an AI-powered football betting signals platform. 
 Your job is to help the admin draft professional, engaging broadcast messages for email or Telegram.
 Keep messages concise, exciting, and professional. Output only the message content, no pleasantries. Use appropriate emojis.`;
 
   try {
-    const result = await model.generateContent(`${systemPrompt}\n\nAdmin Request: ${prompt}`);
-    return result.response.text();
+    const result = await client.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `${systemPrompt}\n\nAdmin Request: ${prompt}`,
+    });
+    return result.text;
   } catch (err) {
     console.error('[AdminAssistant] Error:', err.message);
     return "Error generating content. Please try again.";

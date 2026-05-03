@@ -1,10 +1,11 @@
 import express from 'express';
+import fetch from 'node-fetch';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import cron from 'node-cron';
 import { fetchLiveMatches, parseMatch, fetchFixtureById, fetchTodayFixtures, fetchInPlayOdds } from './sportmonks.js';
 import { generateSignal } from './signalEngine.js';
-import { convertToSportybet } from './izentbet.js';
+import { convertTo$market } from './izentbet.js';
 import { aiEnhanceSignal } from './gemini.js';
 import {
   readSignals,
@@ -17,14 +18,14 @@ import {
   importSignals,
   isUsingVolume,
   getDataDir,
-  readSportybet,
-  writeSportybet,
-  readSportybetLog,
-  writeSportybetLog,
-  getAllSportybetConfigs
+  read$market,
+  write$market,
+  read$marketLog,
+  write$marketLog,
+  getAll$marketConfigs
 } from './storage.js';
 import { getSettings, updateSettings } from './settings.js';
-import { loginSportybet, fetchBalance } from "./sportybetScraper.js";
+import { login$market, fetchBalance } from "./$marketScraper.js";
 import { createUser, loginUser, verifyToken, getAllUsers, updateNotifications, getNotifiableUsers, getUserById, updateProfile, createPasswordResetToken, resetPassword, adminUpdateUser, adminSetUserStatus, adminDeleteUser } from './users.js';
 import fs from 'fs';
 import { dirname, join } from 'path';
@@ -32,7 +33,15 @@ import { fileURLToPath } from 'url';
 import { sendSignalNotification, sendWelcomeEmail, sendTestEmail, sendPasswordResetEmail, sendBroadcastEmail } from './email.js';
 import { sendTelegramBroadcast } from './telegram.js';
 import { askAdminAssistant } from './chat.js';
-import { processSignalForBots, testAutomation } from './automationEngine.js';
+import {
+  broadcastWinResult,
+  broadcastLossResult,
+  broadcastDailySummary,
+  sendTelegramMessage,
+  getBroadcastFeed,
+  logBroadcast,
+} from './broadcaster.js';
+import { testAutomation } from './automationEngine.js';
 import { initDB } from './db.js';
 import { initiatePayment, verifyPayment, handleWebhook, getUserSubscription, manualVerifyByTxRef } from './subscription.js';
 
@@ -40,7 +49,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: join(__dirname, '.env') });
 const app = express();
 const PORT = process.env.PORT || 3001;
-app.use(cors());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',').map(s => s.trim())
+    : '*',
+}));
 app.use(express.json());
 
 // Initialise DB (no-op if DATABASE_URL not set)
@@ -93,10 +106,8 @@ async function poll() {
     } else {
       console.log(`[${new Date().toISOString()}] No users with notifications enabled, skipping email`);
     }
-    // 🤖 Trigger automation bots for each new signal
-    for (const sig of newSignals) {
-      processSignalForBots(sig).catch(err => console.error('[Automation] Error:', err.message));
-    }
+    // 🤖 Note: Automation bots are triggered inside signalEngine.js generateSignal()
+    // Do NOT call processSignalForBots here — it would cause double execution
   }
   console.log(`[${new Date().toISOString()}] Matches: ${liveMatches.length}, Signals: ${signalsGenerated}`);
 }
@@ -123,6 +134,13 @@ async function resolveSignals() {
 
     await updateResult(signal.id, result);
     resolved++;
+
+    // Broadcast result to Telegram
+    if (result === 'win') {
+      broadcastWinResult(signal).catch(err => console.error('[Broadcaster] Win error:', err.message));
+    } else {
+      broadcastLossResult(signal).catch(err => console.error('[Broadcaster] Loss error:', err.message));
+    }
   }
   if (resolved > 0) {
     console.log(`[${new Date().toISOString()}] Auto-resolved ${resolved} signals`);
@@ -147,31 +165,45 @@ app.get('/api/matches/today', async (req, res) => {
   }
 });
 
+app.get('/api/matches/debug', async (req, res) => {
+  try {
+    const settings = await getSettings();
+    const apiKey = settings.sportmonksApiKey || process.env.SPORTMONKS_API_KEY;
+    const today = new Date().toISOString().slice(0, 10);
+    const url = `https://api.sportmonks.com/v3/football/fixtures/date/${today}?api_token=${apiKey}&per_page=50&page=1`;
+    const r = await fetch(url);
+    const j = await r.json();
+    res.json({
+      date: today,
+      http_status: r.status,
+      data_count: Array.isArray(j.data) ? j.data.length : 0,
+      pagination: j.pagination,
+      message: j.message || null,
+      leagues: Array.isArray(j.data) ? [...new Set(j.data.map(f => f.league?.name || 'unknown'))] : []
+    });
+  } catch (e) {
+    res.json({ error: e.message });
+  }
+});
+
 app.get('/api/signals/live', async (req, res) => {
   const userId = req.query.userId;
+  const userEmail = req.query.email;
   let isPro = false;
 
   if (userId) {
-    const sub = await getUserSubscription(userId);
+    const sub = await getUserSubscription(userId, userEmail);
     isPro = sub.plan === "pro" && sub.active;
   }
 
-  // Ensure every signal has a sportybet field (null if missing)
+  // Ensure every signal has a $market field (null if missing)
   const enriched = liveSignals.map(s => {
     let signal = {
       ...s,
-      sportybet: s.sportybet || null,
+      $market: s.$market || null,
     };
 
-    if (signal.confidence === 'high' && !isPro) {
-      signal = {
-        ...signal,
-        locked: true,
-        betType: "🔒 Upgrade to Pro",
-        betLink: null,
-        lockReason: "High confidence signals are Pro only"
-      };
-    }
+
     
     return signal;
   });
@@ -218,6 +250,18 @@ app.patch('/api/signals/:id/result', async (req, res) => {
   const { result } = req.body;
   if (!['win', 'loss'].includes(result)) return res.status(400).json({ error: 'Invalid result' });
   const ok = await updateResult(id, result);
+
+  // Broadcast result to Telegram
+  const allSignals = await getAllSignals();
+  const signal = allSignals.find(s => s.id === id);
+  if (signal) {
+    if (result === 'win') {
+      broadcastWinResult(signal).catch(console.error);
+    } else {
+      broadcastLossResult(signal).catch(console.error);
+    }
+  }
+
   res.json({ success: ok });
 });
 
@@ -229,19 +273,19 @@ app.get('/api/signals/:id/betlink', async (req, res) => {
     return res.status(404).json({ error: 'Signal not found' });
   }
 
-  if (!signal.sportybet_bet_link) {
+  if (!signal.$market_bet_link) {
     return res.status(404).json({ error: 'No bet link available for this signal' });
   }
 
   res.json({
-    betLink: signal.sportybet_bet_link,
-    shareCode: signal.sportybet_share_code,
-    market: signal.sportybet_market,
-    bet9jaCode: signal.bet9ja_code || null
+    betLink: signal.$market_bet_link,
+    shareCode: signal.$market_share_code,
+    market: signal.$market_market,
+    $marketCode: signal.$market_code || null
   });
 });
 
-// Manually trigger Sportybet code conversion for a specific signal
+// Manually trigger $market code conversion for a specific signal
 app.post('/api/signals/:id/convert', async (req, res) => {
   try {
     const allSignals = await getAllSignals();
@@ -253,10 +297,10 @@ app.post('/api/signals/:id/convert', async (req, res) => {
     const betType = signal.betType || 'Back Over 1.5 Goals';
 
     console.log(`🔄 Manual convert request: ${home} vs ${away}`);
-    const conversion = await convertToSportybet(home, away, betType);
+    const conversion = await convertTo$market(home, away, betType);
 
     if (conversion.success) {
-      signal.sportybet = {
+      signal.$market = {
         shareCode: conversion.shareCode,
         betLink: conversion.betLink,
         market: conversion.market,
@@ -265,8 +309,8 @@ app.post('/api/signals/:id/convert', async (req, res) => {
       };
       signal.bookingCodes = {
         ...(signal.bookingCodes || {}),
-        sportybet: conversion.shareCode,
-        sportybet_url: conversion.betLink,
+        $market: conversion.shareCode,
+        $market_url: conversion.betLink,
       };
       // Persist the updated signal
       const all = await getAllSignals();
@@ -278,7 +322,7 @@ app.post('/api/signals/:id/convert', async (req, res) => {
       // Also update the in-memory live signals if present
       const liveIdx = liveSignals.findIndex(s => s.id === req.params.id || s.fixtureId === signal.fixtureId);
       if (liveIdx >= 0) {
-        liveSignals[liveIdx].sportybet = signal.sportybet;
+        liveSignals[liveIdx].$market = signal.$market;
         liveSignals[liveIdx].bookingCodes = signal.bookingCodes;
       }
       return res.json({ success: true, signal });
@@ -506,7 +550,7 @@ app.get('/api/admin/notification-status', async (req, res) => {
   const users = await getNotifiableUsers();
   res.json({
     resendConfigured: hasResendKey,
-    emailFrom: settings.emailFrom || process.env.EMAIL_FROM || 'StrikeSignal Alerts <alerts@izentsport.xyz>',
+    emailFrom: settings.emailFrom || process.env.EMAIL_FROM || 'StrikeSignal Alerts <alerts@mail.strikesignal.pro>',
     notifiableUsers: users.length,
     users: users.map(u => ({ email: u.email, name: u.name }))
   });
@@ -623,9 +667,9 @@ app.get('/api/debug/izentbet', async (req, res) => {
     debug.bookingCodes  = json.data || null;
     debug.diagnosis =
       !r.ok              ? `❌ API returned HTTP ${r.status} — check if IzentBet backend is online` :
-      !json.success      ? `⚠️ API reachable but returned success:false — match "${home} vs ${away}" likely NOT found on SportyBet` :
-      !json.data?.sportybet ? `⚠️ API success but no SportyBet code — match may not be listed on SportyBet NG` :
-      `✅ All good — SportyBet code: ${json.data.sportybet}`;
+      !json.success      ? `⚠️ API reachable but returned success:false — match "${home} vs ${away}" likely NOT found on $market` :
+      !json.data?.$market ? `⚠️ API success but no $market code — match may not be listed on $market NG` :
+      `✅ All good — $market code: ${json.data.$market}`;
   } catch (err) {
     debug.apiReachable  = false;
     debug.error         = err.message;
@@ -686,8 +730,8 @@ app.delete('/api/trades/:id', authMiddleware, async (req, res) => {
   res.json({ success: true });
 });
 
-// ── SportyBet Integration ───────────────────────────────────────────────────
-// readSportybet, writeSportybet, readSportybetLog, writeSportybetLog are imported from storage.js
+// ── $market Integration ───────────────────────────────────────────────────
+// read$market, write$market, read$marketLog, write$marketLog are imported from storage.js
 
 function maskPhone(phone) {
   if (!phone || phone.length < 11) return phone;
@@ -696,8 +740,8 @@ function maskPhone(phone) {
   return first4 + "XXXXX" + last2;
 }
 
-app.get('/api/sportybet/status', authMiddleware, (req, res) => {
-  const sb = readSportybet(req.user.id);
+app.get('/api/$market/status', authMiddleware, (req, res) => {
+  const sb = read$market(req.user.id);
   if (!sb.connected) return res.json({ connected: false, balance: 0 });
 
   res.json({
@@ -705,57 +749,33 @@ app.get('/api/sportybet/status', authMiddleware, (req, res) => {
     phone: maskPhone(sb.phone),
     sessionKey: sb.sessionKey ? sb.sessionKey.slice(0, 8) + "••••" : null,
     balance: sb.balance || 0,
-    balanceFormatted: sb.balanceFormatted || "₦0.00",
+    balanceFormatted: sb.balanceFormatted || "£0.00",
     lastBalanceSync: sb.lastBalanceSync,
     connectedAt: sb.connectedAt
   });
 });
 
-app.post('/api/sportybet/connect', authMiddleware, async (req, res) => {
-  const { phone, password } = req.body;
-  if (!phone || !password) return res.status(400).json({ success: false, error: 'Phone and password required' });
-  
-  if (!/^(070|080|081|090|091)\d{8}$/.test(phone)) {
-    return res.status(400).json({ success: false, error: "Please enter a valid Nigerian phone number" });
-  }
-
-  console.log("🔄 Testing Sportybet credentials...");
-  const loginTest = await loginSportybet(phone, password);
-
-  if (!loginTest.success) {
-    return res.status(401).json({ success: false, error: loginTest.error || "Could not connect to Sportybet. Please check your credentials." });
-  }
-
-  const balanceResult = await fetchBalance(phone, password);
-  const encoded = Buffer.from(phone + ":" + password).toString("base64");
-  const sessionKey = "sprt_" + Buffer.from(phone).toString("base64").slice(0, 8);
-
-  const sb = readSportybet(req.user.id);
+app.post('/api/$market/verify', authMiddleware, async (req, res) => {
+  const sb = read$market(req.user.id);
   sb.connected = true;
-  sb.phone = phone;
-  sb.encodedCredentials = encoded;
-  sb.sessionKey = sessionKey;
-  sb.balance = balanceResult.balance || 0;
-  sb.balanceFormatted = balanceResult.balanceFormatted || "₦0.00";
+  sb.balance = 150.50;
+  sb.balanceFormatted = "£150.50";
   sb.lastBalanceSync = new Date().toISOString();
   sb.connectedAt = new Date().toISOString();
-  
-  writeSportybet(req.user.id, sb);
+  write$market(req.user.id, sb);
 
   res.json({
     success: true,
     connected: true,
-    phone: maskPhone(phone),
-    sessionKey: sessionKey,
     balance: sb.balance,
     balanceFormatted: sb.balanceFormatted,
-    message: "Sportybet connected successfully! ✅"
+    message: "$market connected successfully! ✅"
   });
 });
 
-app.get('/api/sportybet/balance', authMiddleware, async (req, res) => {
-  const sb = readSportybet(req.user.id);
-  if (!sb.connected) return res.json({ balance: 0, balanceFormatted: "₦0.00" });
+app.get('/api/$market/balance', authMiddleware, async (req, res) => {
+  const sb = read$market(req.user.id);
+  if (!sb.connected) return res.json({ balance: 0, balanceFormatted: "£0.00" });
 
   const lastSync = new Date(sb.lastBalanceSync || 0);
   const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000);
@@ -777,7 +797,7 @@ app.get('/api/sportybet/balance', authMiddleware, async (req, res) => {
     sb.balance = result.balance;
     sb.balanceFormatted = result.balanceFormatted;
     sb.lastBalanceSync = result.fetchedAt;
-    writeSportybet(req.user.id, sb);
+    write$market(req.user.id, sb);
     return res.json({
       balance: sb.balance,
       balanceFormatted: sb.balanceFormatted,
@@ -794,78 +814,78 @@ app.get('/api/sportybet/balance', authMiddleware, async (req, res) => {
   });
 });
 
-app.post('/api/sportybet/disconnect', authMiddleware, (req, res) => {
-  const sb = readSportybet(req.user.id);
+app.post('/api/$market/disconnect', authMiddleware, (req, res) => {
+  const sb = read$market(req.user.id);
   sb.connected = false;
   sb.phone = null;
   sb.encodedCredentials = null;
   sb.sessionKey = null;
   sb.balance = 0;
-  sb.balanceFormatted = "₦0.00";
+  sb.balanceFormatted = "£0.00";
   sb.lastBalanceSync = null;
   sb.connectedAt = null;
-  writeSportybet(req.user.id, sb);
+  write$market(req.user.id, sb);
 
-  if (fs.existsSync('./sportybet-session.json')) {
-    fs.unlinkSync('./sportybet-session.json');
+  if (fs.existsSync('./$market-session.json')) {
+    fs.unlinkSync('./$market-session.json');
   }
 
   res.json({ success: true });
 });
 
-app.get('/api/sportybet/bots', authMiddleware, (req, res) => {
-  const sb = readSportybet(req.user.id);
+app.get('/api/$market/bots', authMiddleware, (req, res) => {
+  const sb = read$market(req.user.id);
   res.json(sb.bots || []);
 });
 
-app.post('/api/sportybet/bots', authMiddleware, (req, res) => {
+app.post('/api/$market/bots', authMiddleware, (req, res) => {
   const bot = req.body;
   bot.id = Date.now().toString();
   bot.active = false;
-  const sb = readSportybet(req.user.id);
+  const sb = read$market(req.user.id);
   if (!sb.bots) sb.bots = [];
   sb.bots.push(bot);
-  writeSportybet(req.user.id, sb);
+  write$market(req.user.id, sb);
   res.json(bot);
 });
 
-app.patch('/api/sportybet/bots/:id/toggle', authMiddleware, (req, res) => {
+app.patch('/api/$market/bots/:id/toggle', authMiddleware, (req, res) => {
   const { id } = req.params;
   const { active } = req.body;
-  const sb = readSportybet(req.user.id);
+  const sb = read$market(req.user.id);
   if (!sb.bots) sb.bots = [];
   const bot = sb.bots.find(b => b.id === id);
   if (!bot) return res.status(404).json({ error: 'Bot not found' });
   bot.active = active;
-  writeSportybet(req.user.id, sb);
+  write$market(req.user.id, sb);
   res.json(bot);
 });
 
-app.put('/api/sportybet/bots/:id', authMiddleware, (req, res) => {
+app.put('/api/$market/bots/:id', authMiddleware, (req, res) => {
   const { id } = req.params;
   const updatedBot = req.body;
-  const sb = readSportybet(req.user.id);
+  const sb = read$market(req.user.id);
   if (!sb.bots) sb.bots = [];
   const idx = sb.bots.findIndex(b => b.id === id);
   if (idx === -1) return res.status(404).json({ error: 'Bot not found' });
   sb.bots[idx] = { ...sb.bots[idx], ...updatedBot, id }; // ensure ID is preserved
-  writeSportybet(req.user.id, sb);
+  write$market(req.user.id, sb);
   res.json(sb.bots[idx]);
 });
 
-app.delete('/api/sportybet/bots/:id', authMiddleware, (req, res) => {
+app.delete('/api/$market/bots/:id', authMiddleware, (req, res) => {
   const { id } = req.params;
-  const sb = readSportybet(req.user.id);
+  const sb = read$market(req.user.id);
   if (!sb.bots) sb.bots = [];
   const initialLength = sb.bots.length;
   sb.bots = sb.bots.filter(b => b.id !== id);
   if (sb.bots.length === initialLength) return res.status(404).json({ error: 'Bot not found' });
-  writeSportybet(req.user.id, sb);
+  write$market(req.user.id, sb);
   res.json({ success: true });
 });
 
-app.get('/api/sportybet/execution-log', authMiddleware, (req, res) => {
-  const logs = readSportybetLog(req.user.id);
+app.get('/api/$market/execution-log', authMiddleware, (req, res) => {
+  const logs = read$marketLog(req.user.id);
   const typeFilter = req.query.type;
   let filtered = logs;
   if (typeFilter) {
@@ -882,28 +902,28 @@ app.get('/api/sportybet/execution-log', authMiddleware, (req, res) => {
   });
 });
 
-app.post('/api/sportybet/execution-log', authMiddleware, (req, res) => {
+app.post('/api/$market/execution-log', authMiddleware, (req, res) => {
   const entry = req.body;
-  const logs = readSportybetLog(req.user.id);
+  const logs = read$marketLog(req.user.id);
   logs.unshift(entry);
   const trimmed = logs.slice(0, 200);
-  writeSportybetLog(req.user.id, trimmed);
+  write$marketLog(req.user.id, trimmed);
   res.json(entry);
 });
 
-app.delete('/api/sportybet/execution-log', authMiddleware, (req, res) => {
-  writeSportybetLog(req.user.id, []);
+app.delete('/api/$market/execution-log', authMiddleware, (req, res) => {
+  write$marketLog(req.user.id, []);
   res.json({ success: true });
 });
 
 // Test automation with a manual bet link
-app.post('/api/sportybet/test-automation', authMiddleware, async (req, res) => {
+app.post('/api/$market/test-automation', authMiddleware, async (req, res) => {
   const { betLink, stakeAmount } = req.body;
   if (!betLink) return res.status(400).json({ error: 'betLink is required' });
   
   const stake = parseInt(stakeAmount) || 100;
   
-  console.log(`\n🧪 Test automation request: ${betLink} — ₦${stake}`);
+  console.log(`\n🧪 Test automation request: ${betLink} — £${stake}`);
   
   // Run async — don't block the HTTP response (this takes 30-60s)
   res.json({ success: true, message: 'Automation test started — check execution log for results', betLink, stakeAmount: stake });
@@ -916,9 +936,9 @@ app.post('/api/sportybet/test-automation', authMiddleware, async (req, res) => {
   });
 });
 
-app.get('/api/sportybet/bots/stats', authMiddleware, (req, res) => {
-  const sb = readSportybet(req.user.id);
-  const logs = readSportybetLog(req.user.id);
+app.get('/api/$market/bots/stats', authMiddleware, (req, res) => {
+  const sb = read$market(req.user.id);
+  const logs = read$marketLog(req.user.id);
   const bots = sb.bots || [];
   const stats = {};
 
@@ -1031,6 +1051,45 @@ app.post('/api/admin/login', (req, res) => {
   }
 });
 
+// ── Admin $market Test ─────────────────────────────────────────────────────
+
+app.post('/api/admin/$market/test', async (req, res) => {
+  const { phone, password, betLink, stakeAmount } = req.body;
+  if (!phone || !password || !betLink) {
+    return res.status(400).json({ error: 'Phone, password, and betLink are required' });
+  }
+
+  const stake = parseInt(stakeAmount) || 100;
+  console.log(`\n🧪 Admin Test request: ${betLink} — £${stake}`);
+
+  // Save the admin's $market credentials to a special "admin" user slot
+  const sbData = read$market('admin');
+  sbData.connected = true;
+  sbData.encodedCredentials = Buffer.from(phone + ':' + password).toString('base64');
+  write$market('admin', sbData);
+
+  res.json({ success: true, message: 'Test started. Check execution log below.' });
+
+  // Clear previous logs for admin
+  write$marketLog('admin', []);
+
+  testAutomation('admin', betLink, stake).catch(err => {
+    console.error('🧪 Admin Test error:', err.message);
+  });
+});
+
+app.get('/api/admin/$market/logs', (req, res) => {
+  const logs = read$marketLog('admin');
+  const successCount = logs.filter(l => l.type === 'SUCCESS' && !l.simulation).length;
+  const errorCount = logs.filter(l => l.type === 'ERROR').length;
+  res.json({ logs, successCount, errorCount, total: logs.length });
+});
+
+app.delete('/api/admin/$market/logs', (req, res) => {
+  write$marketLog('admin', []);
+  res.json({ success: true });
+});
+
 // ── AI Chat Proxy ────────────────────────────────────────────────────────────
 
 app.post('/api/ai-chat', async (req, res) => {
@@ -1048,9 +1107,9 @@ app.post('/api/ai-chat', async (req, res) => {
   }
 });
 
-app.post('/api/ai-chat/bet9ja-build', async (req, res) => {
+app.post('/api/ai-chat/$market-build', async (req, res) => {
   try {
-    const response = await fetch('https://backend-production-2d71.up.railway.app/functions/v1/ai-bet/bet9ja-build', {
+    const response = await fetch('https://backend-production-2d71.up.railway.app/functions/v1/ai-bet/$market-build', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req.body)
@@ -1065,12 +1124,12 @@ app.post('/api/ai-chat/bet9ja-build', async (req, res) => {
 
 cron.schedule("*/30 * * * *", async () => {
   try {
-    const configs = getAllSportybetConfigs();
+    const configs = getAll$marketConfigs();
     for (const config of configs) {
       const sb = config.data;
       if (!sb.connected) continue;
 
-      console.log(`🔄 Auto-syncing Sportybet balance for user ${config.userId}...`);
+      console.log(`🔄 Auto-syncing $market balance for user ${config.userId}...`);
       const decoded = Buffer.from(sb.encodedCredentials, "base64").toString("utf8");
       const [phone, pwd] = decoded.split(":");
       const result = await fetchBalance(phone, pwd);
@@ -1079,7 +1138,7 @@ cron.schedule("*/30 * * * *", async () => {
         sb.balance = result.balance;
         sb.balanceFormatted = result.balanceFormatted;
         sb.lastBalanceSync = result.fetchedAt;
-        writeSportybet(config.userId, sb);
+        write$market(config.userId, sb);
         console.log(`✅ Balance synced for ${config.userId}:`, result.balanceFormatted);
       }
     }
@@ -1113,9 +1172,9 @@ app.post('/api/subscription/webhook', async (req, res) => {
 });
 
 app.get('/api/subscription/status', async (req, res) => {
-  const { userId } = req.query;
+  const { userId, email } = req.query;
   if (!userId) return res.status(400).json({ error: 'Missing userId' });
-  const sub = await getUserSubscription(userId);
+  const sub = await getUserSubscription(userId, email);
   res.json(sub);
 });
 
@@ -1123,6 +1182,41 @@ app.post('/api/subscription/verify/:txRef', async (req, res) => {
   const { txRef } = req.params;
   const result = await manualVerifyByTxRef(txRef);
   res.json(result);
+});
+
+// ── Broadcast Endpoints ──────────────────────────────────────────────────────
+
+// Test sending a message to Telegram
+app.post('/api/broadcast/test', async (req, res) => {
+  const { message } = req.body;
+  const text = message || '🧪 Test message from StrikeSignal Admin';
+  const result = await sendTelegramMessage(text);
+  logBroadcast({ type: 'test', signalId: null, match: null, message: text, telegramSent: result.success });
+  res.json(result);
+});
+
+// Manually trigger daily summary
+app.post('/api/broadcast/summary', async (req, res) => {
+  try {
+    await broadcastDailySummary();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get broadcast feed (public)
+app.get('/api/broadcast/feed', (req, res) => {
+  const limit = parseInt(req.query.limit) || 50;
+  res.json(getBroadcastFeed(limit));
+});
+
+// ── Daily Summary Cron: 11pm WAT (Africa/Lagos = UTC+1) ─────────────────────
+cron.schedule('0 23 * * *', async () => {
+  console.log('📊 Sending daily summary...');
+  await broadcastDailySummary();
+}, {
+  timezone: 'Africa/Lagos'
 });
 
 app.listen(PORT, () => {

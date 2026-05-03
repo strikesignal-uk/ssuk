@@ -85,13 +85,13 @@ export default function Contact() {
 
             <InfoCard icon="🏢" title="Company">
               <p>StrikeSignal by Izent Global Ltd</p>
-              <p className="text-xs text-slate-500 mt-1">Registered in United Kingdom & Nigeria</p>
+              <p className="text-xs text-slate-500 mt-1">Registered in United Kingdom</p>
               <p className="text-xs text-slate-600 mt-2">© 2026 Izent Global Ltd. All rights reserved.</p>
             </InfoCard>
 
             <InfoCard icon="⏰" title="Support Hours">
-              <p>Monday — Friday: 9am — 10pm WAT</p>
-              <p>Saturday — Sunday: 12pm — 11pm WAT</p>
+              <p>Monday — Friday: 9am — 10pm GMT</p>
+              <p>Saturday — Sunday: 12pm — 11pm GMT</p>
               <p className="text-xs text-slate-500 mt-1">(During active football match hours)</p>
             </InfoCard>
           </div>

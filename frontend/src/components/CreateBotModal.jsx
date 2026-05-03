@@ -84,7 +84,7 @@ export default function CreateBotModal({ onClose, onSave, initialData }) {
       newErrors.stakeValue = 'Enter a valid stake';
     } else {
       if (formData.stakingMethod === 'flat' && stake < 500) {
-        newErrors.stakeValue = 'Minimum flat stake is ₦500';
+        newErrors.stakeValue = 'Minimum flat stake is £500';
       }
       if (formData.stakingMethod === 'percent' && (stake < 1 || stake > 10)) {
         newErrors.stakeValue = '% stake must be between 1% and 10%';
@@ -104,9 +104,9 @@ export default function CreateBotModal({ onClose, onSave, initialData }) {
   // --- Dynamic Stake Labels ---
   const getStakeLabel = () => {
     switch (formData.stakingMethod) {
-      case 'flat': return 'Fixed Stake Amount (₦)';
-      case 'percent': return '% of Sportybet Balance';
-      case 'drip': return 'Total Stake to Split (₦)';
+      case 'flat': return 'Fixed Stake Amount (£)';
+      case 'percent': return '% of $market Balance';
+      case 'drip': return 'Total Stake to Split (£)';
       case 'percent_drip': return '% of Balance to Split';
       default: return 'Stake';
     }
@@ -186,9 +186,9 @@ export default function CreateBotModal({ onClose, onSave, initialData }) {
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { id: 'flat', label: 'Flat', badge: 'RECOMMENDED', badgeColor: 'bg-green-600', sub: 'Fixed ₦ per bet' },
+                { id: 'flat', label: 'Flat', badge: 'RECOMMENDED', badgeColor: 'bg-green-600', sub: 'Fixed £ per bet' },
                 { id: 'percent', label: '%', badge: 'RECOMMENDED', badgeColor: 'bg-green-600', sub: '% of balance' },
-                { id: 'drip', label: 'Drip', badge: 'ADVANCED', badgeColor: 'bg-blue-500', sub: 'Split ₦ across N bets' },
+                { id: 'drip', label: 'Drip', badge: 'ADVANCED', badgeColor: 'bg-blue-500', sub: 'Split £ across N bets' },
                 { id: 'percent_drip', label: '% Drip', badge: 'ADVANCED', badgeColor: 'bg-blue-500', sub: 'Split % across N bets' }
               ].map(method => (
                 <div 
@@ -225,10 +225,10 @@ export default function CreateBotModal({ onClose, onSave, initialData }) {
                 </p>
               )}
               <p className="text-xs text-slate-400 pl-5">
-                e.g. 2 = {formData.stakingMethod.includes('percent') ? '2% of your available balance' : '₦2'} at signal time
+                e.g. 2 = {formData.stakingMethod.includes('percent') ? '2% of your available balance' : '£2'} at signal time
               </p>
               <p className="text-xs text-amber-500 flex items-start gap-1.5 pt-1">
-                <span>⚠️</span> Bots cap at ₦50,000 per entry — if your % stake exceeds ₦50,000 at signal time, it will be reduced automatically.
+                <span>⚠️</span> Bots cap at £50,000 per entry — if your % stake exceeds £50,000 at signal time, it will be reduced automatically.
               </p>
             </div>
           </div>

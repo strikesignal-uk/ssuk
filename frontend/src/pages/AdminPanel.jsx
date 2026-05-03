@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts';
-import AiChatTab from '../components/AiChatTab';
-
 const API = import.meta.env.VITE_API_URL;
 
 // ── Admin Login ──────────────────────────────────────────────────────────────
@@ -53,10 +51,10 @@ const TABS = [
   { key: 'dashboard', icon: '📊', label: 'Dashboard Overview' },
   { key: 'blog', icon: '📝', label: 'Blog Manager' },
   { key: 'chats', icon: '💬', label: 'Live Chats' },
-  { key: 'ai-chat', icon: '🤖', label: 'AI Betting Chat' },
   { key: 'users', icon: '👥', label: 'Users' },
   { key: 'broadcast', icon: '📣', label: 'Broadcasts' },
   { key: 'contacts', icon: '📧', label: 'Contact Messages' },
+  { key: '$market-test', icon: '🧪', label: '$market Test' },
   { key: 'settings', icon: '⚙️', label: 'Settings' },
 ];
 
@@ -292,7 +290,7 @@ function ContactsTab() {
 
 // ── Dashboard Overview Tab ───────────────────────────────────────────────────
 const DEFAULT_STAKE = 2000;
-const fmtN = n => '₦' + Math.abs(Number(n)).toLocaleString('en-NG');
+const fmtN = n => '£' + Math.abs(Number(n)).toLocaleString('en-NG');
 
 const AdminChartTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
@@ -506,7 +504,7 @@ function DashboardTab() {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
                 <XAxis dataKey="date" tick={{ fill: '#475569', fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: '#475569', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `₦${(v/1000).toFixed(0)}k`} />
+                <YAxis tick={{ fill: '#475569', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `£${(v/1000).toFixed(0)}k`} />
                 <Tooltip content={<AdminChartTooltip />} />
                 <ReferenceLine y={0} stroke="#334155" strokeDasharray="4 4" />
                 <Area type="monotone" dataKey="cumulative" stroke="#3b82f6" strokeWidth={2} fill="url(#adminPosFill)" dot={false} activeDot={{ r: 4, fill: '#3b82f6' }} />
@@ -894,6 +892,32 @@ function BroadcastTab() {
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiError, setAiError] = useState('');
 
+  // Telegram test
+  const [testMsg, setTestMsg] = useState('');
+  const [testSending, setTestSending] = useState(false);
+  const [testResult, setTestResult] = useState('');
+
+  // Daily summary
+  const [summarySending, setSummarySending] = useState(false);
+  const [summaryResult, setSummaryResult] = useState('');
+
+  // Broadcast history
+  const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  useEffect(() => {
+    loadHistory();
+  }, []);
+
+  const loadHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const res = await fetch(`${API}/api/broadcast/feed?limit=50`);
+      if (res.ok) setHistory(await res.json());
+    } catch { /* silent */ }
+    setHistoryLoading(false);
+  };
+
   const askAi = async () => {
     if (!aiPrompt.trim()) return;
     setAiGenerating(true); setAiError('');
@@ -918,20 +942,87 @@ function BroadcastTab() {
         body: JSON.stringify({ subject: subject || 'StrikeSignal Update', message, channels: { email, telegram } })
       });
       const data = await res.json();
-      if (res.ok) setResult(`✅ Sent! Emails: ${data.results.email}, Telegram: ${data.results.telegram ? 'Yes' : 'No'}`);
-      else setResult(`❌ Error: ${data.error}`);
-    } catch { setResult('❌ Connection error'); }
+      if (res.ok) { setResult(`\u2705 Sent! Emails: ${data.results.email}, Telegram: ${data.results.telegram ? 'Yes' : 'No'}`); loadHistory(); }
+      else setResult(`\u274c Error: ${data.error}`);
+    } catch { setResult('\u274c Connection error'); }
     setSending(false);
   };
 
+  const sendTest = async () => {
+    setTestSending(true); setTestResult('');
+    try {
+      const res = await fetch(`${API}/api/broadcast/test`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: testMsg || undefined })
+      });
+      const data = await res.json();
+      if (data.success) { setTestResult('\u2705 Test sent!'); loadHistory(); }
+      else setTestResult(`\u274c ${data.error}`);
+    } catch { setTestResult('\u274c Connection error'); }
+    setTestSending(false);
+  };
+
+  const sendSummary = async () => {
+    setSummarySending(true); setSummaryResult('');
+    try {
+      const res = await fetch(`${API}/api/broadcast/summary`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) { setSummaryResult('\u2705 Daily summary sent!'); loadHistory(); }
+      else setSummaryResult(`\u274c ${data.error || 'Failed'}`);
+    } catch { setSummaryResult('\u274c Connection error'); }
+    setSummarySending(false);
+  };
+
+  const typeBadge = (type) => {
+    const map = {
+      signal_alert: { bg: 'bg-blue-500/20', text: 'text-blue-400', label: '\ud83d\udce1 SIGNAL' },
+      win: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', label: '\u2705 WIN' },
+      loss: { bg: 'bg-red-500/20', text: 'text-red-400', label: '\u274c LOSS' },
+      daily_summary: { bg: 'bg-purple-500/20', text: 'text-purple-400', label: '\ud83d\udcca SUMMARY' },
+      test: { bg: 'bg-yellow-500/20', text: 'text-yellow-400', label: '\ud83e\uddea TEST' },
+    };
+    const t = map[type] || { bg: 'bg-slate-500/20', text: 'text-slate-400', label: type };
+    return <span className={`${t.bg} ${t.text} text-[10px] font-bold px-2 py-0.5 rounded-full uppercase`}>{t.label}</span>;
+  };
+
   return (
-    <div className="p-6 max-w-3xl space-y-4">
-      <h2 className="text-sm font-black text-white uppercase tracking-widest">Send Broadcast Message</h2>
+    <div className="p-6 max-w-4xl space-y-6">
+      <h2 className="text-sm font-black text-white uppercase tracking-widest">Broadcasts & Telegram</h2>
+
+      {/* Telegram Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Test Message */}
+        <div className="bg-[#0d1527] border border-white/5 rounded-2xl p-5">
+          <h3 className="text-xs font-black text-yellow-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+            <span>{'\ud83e\uddea'}</span> Send Test Message
+          </h3>
+          <input value={testMsg} onChange={e => setTestMsg(e.target.value)} placeholder="Custom test message (optional)"
+            className="w-full bg-[#0a0f1e] border border-white/5 text-white rounded-xl px-4 py-2.5 text-sm outline-none mb-3" />
+          <button onClick={sendTest} disabled={testSending}
+            className="bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 text-white font-bold py-2 px-4 rounded-xl text-sm transition-all w-full">
+            {testSending ? 'Sending...' : '\ud83d\udce4 Send Test to Telegram'}
+          </button>
+          {testResult && <p className="text-xs font-bold mt-2 text-slate-300">{testResult}</p>}
+        </div>
+
+        {/* Daily Summary */}
+        <div className="bg-[#0d1527] border border-white/5 rounded-2xl p-5">
+          <h3 className="text-xs font-black text-purple-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+            <span>{'\ud83d\udcca'}</span> Daily Summary
+          </h3>
+          <p className="text-xs text-slate-400 mb-3">Auto-runs at 11pm WAT daily. Click below to send it now.</p>
+          <button onClick={sendSummary} disabled={summarySending}
+            className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold py-2 px-4 rounded-xl text-sm transition-all w-full">
+            {summarySending ? 'Sending...' : '\ud83d\udcca Send Daily Summary Now'}
+          </button>
+          {summaryResult && <p className="text-xs font-bold mt-2 text-slate-300">{summaryResult}</p>}
+        </div>
+      </div>
       
       {/* AI Assistant Box */}
-      <div className="bg-gradient-to-r from-blue-600/10 to-emerald-600/10 border border-blue-500/20 rounded-2xl p-5 mb-4">
+      <div className="bg-gradient-to-r from-blue-600/10 to-emerald-600/10 border border-blue-500/20 rounded-2xl p-5">
         <h3 className="text-xs font-black text-blue-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-          <span>✨</span> Gemini AI Assistant
+          <span>{'\u2728'}</span> Gemini AI Assistant
         </h3>
         <p className="text-xs text-slate-400 mb-3">Tell the AI what you want to broadcast (e.g., "Write an exciting update about yesterday's 3-0 win streak")</p>
         <div className="flex gap-2">
@@ -945,7 +1036,9 @@ function BroadcastTab() {
         {aiError && <p className="text-red-400 text-xs mt-2">{aiError}</p>}
       </div>
 
+      {/* Manual Broadcast Form */}
       <div className="bg-[#0d1527] border border-white/5 rounded-2xl p-6 space-y-4">
+        <h3 className="text-xs font-black text-white uppercase tracking-widest mb-2">Send Broadcast Message</h3>
         <div>
           <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Subject (Email only)</label>
           <input value={subject} onChange={e => setSubject(e.target.value)} placeholder="StrikeSignal Update" className="w-full bg-[#0a0f1e] border border-white/5 text-white rounded-xl px-4 py-2.5 text-sm outline-none" />
@@ -974,6 +1067,201 @@ function BroadcastTab() {
             {sending ? 'Sending...' : 'Send Broadcast'}
           </button>
           {result && <span className="ml-4 text-sm font-bold text-slate-300">{result}</span>}
+        </div>
+      </div>
+
+      {/* Broadcast History */}
+      <div className="bg-[#0d1527] border border-white/5 rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xs font-black text-white uppercase tracking-widest">Broadcast History</h3>
+          <button onClick={loadHistory} className="text-xs text-blue-400 hover:text-blue-300 font-bold">{'\ud83d\udd04'} Refresh</button>
+        </div>
+        {historyLoading ? (
+          <p className="text-slate-500 text-sm">Loading...</p>
+        ) : history.length === 0 ? (
+          <p className="text-slate-500 text-sm">No broadcasts yet</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-slate-500 text-[10px] uppercase tracking-wider border-b border-white/5">
+                  <th className="text-left py-2 px-2">Time</th>
+                  <th className="text-left py-2 px-2">Type</th>
+                  <th className="text-left py-2 px-2">Match</th>
+                  <th className="text-left py-2 px-2">Status</th>
+                  <th className="text-left py-2 px-2">Message</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.slice(0, 30).map((entry, i) => (
+                  <tr key={entry.id || i} className="border-b border-white/5 hover:bg-white/[0.02]">
+                    <td className="py-2 px-2 text-slate-400 text-xs whitespace-nowrap">
+                      {new Date(entry.timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                    <td className="py-2 px-2">{typeBadge(entry.type)}</td>
+                    <td className="py-2 px-2 text-white text-xs font-medium">{entry.match || '\u2014'}</td>
+                    <td className="py-2 px-2">
+                      {entry.telegramSent
+                        ? <span className="text-emerald-400 text-xs font-bold">{'\u2705'} Sent</span>
+                        : <span className="text-red-400 text-xs font-bold">{'\u274c'} Failed</span>}
+                    </td>
+                    <td className="py-2 px-2 text-slate-400 text-xs max-w-[200px] truncate">{entry.message?.replace(/<[^>]*>/g, '').slice(0, 80)}...</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── $market Test Tab ───────────────────────────────────────────────────────
+function $marketTestTab() {
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [testLink, setTestLink] = useState('');
+  const [testStake, setTestStake] = useState('100');
+  const [testRunning, setTestRunning] = useState(false);
+  const [testResult, setTestResult] = useState(null);
+  
+  const [logs, setLogs] = useState([]);
+  const [logStats, setLogStats] = useState({ successCount: 0, errorCount: 0, total: 0 });
+
+  const fetchExecutionLog = async () => {
+    try {
+      const res = await fetch(`${API}/api/admin/$market/logs`, {
+        headers: { Authorization: `Bearer ${sessionStorage.getItem('ss_admin')}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLogs(data.logs || []);
+        setLogStats({ successCount: data.successCount, errorCount: data.errorCount, total: data.total });
+      }
+    } catch (err) {}
+  };
+
+  useEffect(() => {
+    fetchExecutionLog();
+    const interval = setInterval(fetchExecutionLog, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const runTestAutomation = async () => {
+    if (!phone || !password || !testLink.trim()) return;
+    setTestRunning(true);
+    setTestResult(null);
+    try {
+      const res = await fetch(`${API}/api/admin/$market/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionStorage.getItem('ss_admin')}` },
+        body: JSON.stringify({ phone, password, betLink: testLink.trim(), stakeAmount: parseInt(testStake) || 100 })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTestResult({ ok: true, msg: '🚀 Test started! Watch the Execution Log below.' });
+        setTimeout(fetchExecutionLog, 5000);
+      } else {
+        setTestResult({ ok: false, msg: data.error || 'Test failed to start' });
+      }
+    } catch (e) {
+      setTestResult({ ok: false, msg: 'Network error: ' + e.message });
+    } finally {
+      setTestRunning(false);
+    }
+  };
+
+  const clearLogs = async () => {
+    await fetch(`${API}/api/admin/$market/logs`, { method: 'DELETE', headers: { Authorization: `Bearer ${sessionStorage.getItem('ss_admin')}` } });
+    setLogs([]);
+    setLogStats({ successCount: 0, errorCount: 0, total: 0 });
+  };
+
+  const getLogBorderColor = (type) => {
+    if (type === 'SUCCESS') return 'border-l-emerald-500';
+    if (type === 'ERROR') return 'border-l-red-500';
+    if (type === 'ENTRY') return 'border-l-blue-500';
+    return 'border-l-slate-500';
+  };
+
+  const getLogBadge = (type) => {
+    if (type === 'SUCCESS') return { bg: 'bg-emerald-500/10 border-emerald-500/30', text: 'text-emerald-400', label: '✅ SUCCESS' };
+    if (type === 'ERROR') return { bg: 'bg-red-500/10 border-red-500/30', text: 'text-red-400', label: '❌ ERROR' };
+    if (type === 'ENTRY') return { bg: 'bg-blue-500/10 border-blue-500/30', text: 'text-blue-400', label: '📋 ENTRY' };
+    return { bg: 'bg-slate-500/10 border-slate-500/30', text: 'text-slate-400', label: type };
+  };
+
+  return (
+    <div className="p-6 max-w-4xl space-y-6">
+      <h2 className="text-sm font-black text-white uppercase tracking-widest">$market Automation Test</h2>
+      
+      <div className="bg-[#0d1527] border border-amber-500/20 rounded-2xl p-6 space-y-4">
+        <p className="text-xs text-slate-500">Provide your $market credentials to test the automation bot. These credentials are only saved temporarily for this test.</p>
+        
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">$market Phone</label>
+            <input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="080..." className="w-full bg-[#0a0f1e] border border-white/5 focus:border-amber-500/40 text-white rounded-xl px-4 py-2 text-sm outline-none transition-colors" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">$market Password</label>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" className="w-full bg-[#0a0f1e] border border-white/5 focus:border-amber-500/40 text-white rounded-xl px-4 py-2 text-sm outline-none transition-colors" />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">$market Share Link</label>
+          <input type="url" value={testLink} onChange={e => { setTestLink(e.target.value); setTestResult(null); }} placeholder="https://www.$market.com/ng/?shareCode=XXXXXX" className="w-full bg-[#0a0f1e] border border-white/5 focus:border-amber-500/40 text-white rounded-xl px-4 py-2 text-sm outline-none transition-colors font-mono" />
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Stake Amount (£)</label>
+          <input type="number" value={testStake} onChange={e => setTestStake(e.target.value)} min="100" placeholder="100" className="w-1/3 bg-[#0a0f1e] border border-white/5 focus:border-amber-500/40 text-white rounded-xl px-4 py-2 text-sm outline-none transition-colors" />
+        </div>
+
+        <button onClick={runTestAutomation} disabled={testRunning || !phone || !password || !testLink} className={`px-6 py-2.5 rounded-xl text-sm font-black transition-all ${testRunning || !phone || !password || !testLink ? 'bg-slate-700 text-slate-500' : 'bg-amber-500 hover:bg-amber-400 text-black shadow-lg shadow-amber-500/20'}`}>
+          {testRunning ? 'Running Test...' : '▶ Run Test Automation'}
+        </button>
+
+        {testResult && (
+          <div className={`text-xs font-medium px-4 py-3 rounded-xl border ${testResult.ok ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+            {testResult.msg}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-[#0d1527] border border-white/5 rounded-2xl overflow-hidden">
+        <div className="p-4 sm:p-5 border-b border-white/5 flex items-center justify-between">
+          <h2 className="text-sm font-black text-white uppercase tracking-widest">Test Execution Log</h2>
+          <div className="flex gap-2">
+            <button onClick={fetchExecutionLog} className="bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all">🔄 Refresh</button>
+            <button onClick={clearLogs} className="bg-slate-800 hover:bg-red-900/50 text-red-400 text-xs font-bold px-3 py-2 rounded-xl transition-all">🗑️ Clear</button>
+          </div>
+        </div>
+        <div className="divide-y divide-white/5">
+          {logs.length === 0 ? (
+            <div className="p-8 text-center text-slate-500 text-sm">No test logs available.</div>
+          ) : (
+            logs.map((l, i) => {
+              const badge = getLogBadge(l.type);
+              return (
+                <div key={l.id || i} className={`p-4 border-l-4 ${getLogBorderColor(l.type)} hover:bg-white/[0.02] transition-colors`}>
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border ${badge.bg} ${badge.text}`}>{badge.label}</span>
+                      <span className="font-bold text-white text-sm">{l.match}</span>
+                    </div>
+                    <span className="text-xs text-slate-500 font-mono">{l.time}</span>
+                  </div>
+                  <div className="ml-2">
+                    <div className={`text-xs font-medium ${l.type === 'ERROR' ? 'text-amber-500' : l.type === 'SUCCESS' ? 'text-emerald-400' : 'text-blue-400'}`}>{l.status}</div>
+                    {l.aiSteps && <div className="text-[10px] text-slate-600 mt-1">🤖 AI steps: {l.aiSteps}</div>}
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
     </div>
@@ -1041,7 +1329,7 @@ function SettingsTab() {
         <label className="flex items-center justify-between cursor-pointer">
           <div>
             <p className="text-sm font-bold text-white">Only show signals with booking codes</p>
-            <p className="text-xs text-slate-500 mt-0.5">When enabled, signals for matches not listed on SportyBet or Bet9ja are suppressed and won't appear on the Live page.</p>
+            <p className="text-xs text-slate-500 mt-0.5">When enabled, signals for matches not listed on $market or $market are suppressed and won't appear on the Live page.</p>
           </div>
           <div className={`relative w-12 h-6 rounded-full transition-all shrink-0 ml-4 cursor-pointer ${
             filterNoBookingCodes ? 'bg-blue-600' : 'bg-slate-700'
@@ -1104,10 +1392,10 @@ export default function AdminPanel() {
         {tab === 'dashboard' && <DashboardTab />}
         {tab === 'blog' && <BlogManagerTab />}
         {tab === 'chats' && <ChatsTab />}
-        {tab === 'ai-chat' && <AiChatTab />}
         {tab === 'contacts' && <ContactsTab />}
         {tab === 'broadcast' && <BroadcastTab />}
         {tab === 'users' && <UsersTab />}
+        {tab === '$market-test' && <$marketTestTab />}
         {tab === 'settings' && <SettingsTab />}
       </div>
     </div>

@@ -133,28 +133,28 @@ export default function Results({ results, stats, period, onPeriodChange }) {
                         {/* Booking Codes Column */}
                         <div className="flex flex-col items-end gap-1 border-l border-slate-800 pl-4 ml-2">
                           <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-0.5">Book Bet</div>
-                          {r.sportybet_bet_link ? (
+                          {r.$market_bet_link ? (
                             <button
-                              onClick={() => window.open(r.sportybet_bet_link, '_blank')}
+                              onClick={() => window.open(r.$market_bet_link, '_blank')}
                               className="flex items-center gap-1 bg-[#16a34a] hover:bg-green-600 text-white px-2 py-1 rounded-md text-[10px] font-bold transition-colors"
-                              title={`SportyBet code: ${r.sportybet_share_code}`}
+                              title={`$market code: ${r.$market_share_code}`}
                             >
-                              ⚽ <span>SportyBet</span>
+                              ⚽ <span>$market</span>
                             </button>
                           ) : null}
-                          {r.bet9ja_code ? (
+                          {r.$market_code ? (
                             <button
                               onClick={() => {
-                                navigator.clipboard?.writeText(r.bet9ja_code).catch(() => {});
-                                window.open(`https://web.bet9ja.com/Sport/Coupon/${r.bet9ja_code}`, '_blank');
+                                navigator.clipboard?.writeText(r.$market_code).catch(() => {});
+                                window.open(`https://web.$market.com/Sport/Coupon/${r.$market_code}`, '_blank');
                               }}
                               className="flex items-center gap-1 bg-[#007b5e] hover:bg-emerald-700 text-white px-2 py-1 rounded-md text-[10px] font-bold transition-colors"
-                              title={`Bet9ja code: ${r.bet9ja_code}`}
+                              title={`$market code: ${r.$market_code}`}
                             >
-                              🎯 <span>Bet9ja</span>
+                              🎯 <span>$market</span>
                             </button>
                           ) : null}
-                          {!r.sportybet_bet_link && !r.bet9ja_code && (
+                          {!r.$market_bet_link && !r.$market_code && (
                             <span className="text-slate-600 font-bold text-sm">—</span>
                           )}
                         </div>

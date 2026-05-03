@@ -8,7 +8,7 @@ const NAV = [
   { key: 'tradelog',  icon: '📋', label: 'Trade Log' },
   { key: 'schedule',  icon: '📅', label: 'Schedule' },
   { key: 'results',   icon: '🏆', label: 'Results' },
-  { key: 'sportybet', icon: '⚽', label: 'Automation' },
+  { key: '$market', icon: '⚽', label: 'Automation' },
   { key: 'blog',      icon: '📝', label: 'Blog' },
   { key: 'settings',  icon: '⚙️',  label: 'Settings' },
 ];
@@ -18,7 +18,7 @@ export default function Sidebar({ page, setPage, user, onLogout, liveCount, coll
 
   useEffect(() => {
     if (user?.id) {
-      fetch(`${API}/api/subscription/status?userId=${user.id}`)
+      fetch(`${API}/api/subscription/status?userId=${user.id}&email=${encodeURIComponent(user.email)}`)
         .then(res => res.json())
         .then(data => setSub(data))
         .catch(console.error);
@@ -88,7 +88,7 @@ export default function Sidebar({ page, setPage, user, onLogout, liveCount, coll
 
 
           {collapsed && (
-            <button onClick={() => setPage('sportybet')} title="Sportybet"
+            <button onClick={() => setPage('$market')} title="$market"
               className="w-full flex items-center justify-center py-2 rounded-xl text-slate-600 hover:text-teal-400 transition-all">
               <span className="text-sm">💰</span>
             </button>

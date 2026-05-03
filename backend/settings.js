@@ -16,10 +16,10 @@ const DEFAULTS = {
   sportmonksApiKey: '',
   geminiApiKey: '',
   resendApiKey: '',
-  emailFrom: 'StrikeSignal Alerts <alerts@izentsport.xyz>',
+  emailFrom: 'StrikeSignal Alerts <alerts@mail.strikesignal.pro>',
   telegramBotToken: '',
   telegramChatId: '',
-  filterNoBookingCodes: 'false',  // 'true' = only emit signals that have SportyBet/Bet9ja codes
+  filterNoBookingCodes: 'false',  // 'true' = only emit signals that have $market/$market codes
 };
 
 // ─── JSON fallback helpers ────────────────────────────────────────────────────

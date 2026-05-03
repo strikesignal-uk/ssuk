@@ -31,109 +31,126 @@ export default function Signup({ onAuth }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex">
-      {/* Left panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-900 via-blue-950 to-violet-950 flex-col justify-center items-center p-12 relative overflow-hidden">
-        <div className="absolute top-20 left-20 w-72 h-72 bg-blue-600/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-20 right-10 w-64 h-64 bg-violet-600/20 rounded-full blur-3xl pointer-events-none" />
+    <div style={{ fontFamily: "'Inter', sans-serif" }} className="min-h-screen bg-[#06080F] flex text-white relative overflow-hidden">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+        .glass-panel { background: rgba(255, 255, 255, 0.02); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.05); }
+      `}</style>
+      
+      {/* Background orbs */}
+      <div className="absolute top-20 left-20 w-[600px] h-[600px] bg-emerald-600/10 rounded-full blur-[120px] pointer-events-none mix-blend-screen" />
+      <div className="absolute bottom-20 right-10 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[100px] pointer-events-none mix-blend-screen" />
 
-        <div className="relative z-10 flex flex-col items-center text-center">
-          <img 
-            src="/logo.png" 
-            alt="StrikeSignal" 
-            className="w-[140px] md:w-[180px] h-auto mb-2"
-          />
-          <p className="text-[#3b82f6] text-sm font-medium">Live Goal Intelligence</p>
-        </div>
+      {/* Left panel — branding */}
+      <div className="hidden lg:flex lg:w-1/2 flex-col justify-center items-center p-12 relative z-10">
+        <div className="relative glass-panel rounded-[2rem] p-12 shadow-2xl overflow-hidden max-w-md w-full border border-white/5">
+          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-emerald-400 to-blue-500" />
+          <div className="flex flex-col items-start mb-10">
+            <Link to="/">
+              <img 
+                src="/logo.png" 
+                alt="StrikeSignal" 
+                className="w-[160px] h-auto mb-4 hover:opacity-90 transition-opacity"
+              />
+            </Link>
+            <h2 className="text-3xl font-black tracking-tight mb-2">UK Market Intelligence.</h2>
+            <p className="text-slate-400 text-sm">Join the platform redefining live football betting.</p>
+          </div>
 
-        <div className="relative z-10 grid grid-cols-2 gap-3 mt-8 text-left">
-          {[
-            { icon: '🎯', val: 'Real-time', label: 'Signal detection' },
-            { icon: '🤖', val: 'AI-powered', label: 'Predictions' },
-            { icon: '📧', val: 'Instant', label: 'Email alerts' },
-            { icon: '📊', val: 'Full', label: 'History tracking' },
-          ].map(f => (
-            <div key={f.val} className="bg-slate-800/60 rounded-xl p-3 border border-slate-700">
-              <div className="text-xl mb-1">{f.icon}</div>
-              <div className="text-white text-sm font-bold">{f.val}</div>
-              <div className="text-slate-500 text-xs">{f.label}</div>
-            </div>
-          ))}
+          <div className="space-y-6">
+            {[
+              { icon: '🎯', label: 'Real-time detection', desc: 'Instant live xG and attack alerts' },
+              { icon: '🤖', label: 'AI-powered', desc: 'Gemini AI validates every opportunity' },
+              { icon: '📊', label: 'Full tracking', desc: 'Monitor your strike rate and profits' },
+            ].map(f => (
+              <div key={f.label} className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-black/40 flex items-center justify-center text-lg border border-white/5">{f.icon}</div>
+                <div>
+                  <p className="text-white text-sm font-bold">{f.label}</p>
+                  <p className="text-slate-500 text-xs font-medium mt-0.5">{f.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* Right panel — form */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12">
+      <div className="flex-1 flex items-center justify-center px-6 py-12 relative z-10">
         <div className="w-full max-w-sm">
-          <div className="flex lg:hidden flex-col items-center justify-center mb-8 text-center">
-            <img 
-              src="/logo.png" 
-              alt="StrikeSignal" 
-              className="w-[140px] h-auto mb-2"
-            />
-            <p className="text-[#3b82f6] text-xs font-medium mt-0.5">Live Goal Intelligence</p>
+          {/* Mobile logo */}
+          <div className="flex lg:hidden flex-col items-center justify-center mb-10 text-center">
+            <Link to="/">
+              <img 
+                src="/logo.png" 
+                alt="StrikeSignal" 
+                className="w-[150px] h-auto mb-3"
+              />
+            </Link>
+            <p className="text-emerald-400 text-xs font-bold uppercase tracking-widest">UK Market Edition</p>
           </div>
 
-          <h2 className="text-2xl font-bold text-white mb-1">Create account</h2>
-          <p className="text-slate-500 text-sm mb-8">Free forever — no credit card required</p>
+          <div className="bg-[#0A0D18]/80 backdrop-blur-xl border border-white/5 rounded-[2rem] p-8 md:p-10 shadow-2xl">
+            <h2 className="text-3xl font-black text-white mb-2 tracking-tight">Create account</h2>
+            <p className="text-slate-400 text-sm mb-8 font-medium">Free forever — no credit card required</p>
 
-          {error && (
-            <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 text-red-400 text-sm p-3 rounded-xl mb-5">
-              <span>⚠</span> {error}
-            </div>
-          )}
+            {error && (
+              <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-4 rounded-xl mb-6 font-semibold">
+                <span>⚠</span> {error}
+              </div>
+            )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1.5">Full Name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                required
-                className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="John Doe"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1.5">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-                className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="you@example.com"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-400 mb-1.5">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                minLength={6}
-                className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="At least 6 characters"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 text-white py-3 rounded-xl font-semibold text-sm shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
-            >
-              {loading ? 'Creating account…' : 'Create Free Account →'}
-            </button>
-          </form>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Full Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  required
+                  className="w-full bg-black/30 border border-white/10 text-white rounded-xl px-4 py-3.5 text-sm placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                  placeholder="John Doe"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                  className="w-full bg-black/30 border border-white/10 text-white rounded-xl px-4 py-3.5 text-sm placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                  placeholder="you@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  className="w-full bg-black/30 border border-white/10 text-white rounded-xl px-4 py-3.5 text-sm placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                  placeholder="At least 6 characters"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-white text-black py-4 rounded-xl font-black text-sm transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed mt-4 shadow-lg"
+              >
+                {loading ? 'Creating account…' : 'Create Free Account'}
+              </button>
+            </form>
 
-          <p className="text-center text-sm text-slate-600 mt-6">
-            Already have an account?{' '}
-            <Link to="/login" className="text-blue-400 font-semibold hover:text-blue-300">Sign In</Link>
-          </p>
+            <p className="text-center text-sm text-slate-500 mt-8 font-medium">
+              Already have an account?{' '}
+              <Link to="/login" className="text-white font-bold hover:text-emerald-400 transition-colors">Sign In</Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>
   );
 }
-

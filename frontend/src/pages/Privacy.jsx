@@ -41,7 +41,7 @@ export default function Privacy() {
 
         <div className="space-y-6">
           <Section title="1. Who We Are">
-            <P>StrikeSignal is operated by Izent Global Ltd, registered in the United Kingdom and Nigeria. We are committed to protecting your personal data in accordance with the UK General Data Protection Regulation (UK GDPR), the Data Protection Act 2018, and the Nigeria Data Protection Regulation (NDPR).</P>
+            <P>StrikeSignal is operated by Izent Global Ltd, registered in the United Kingdom. We are committed to protecting your personal data in accordance with the UK General Data Protection Regulation (UK GDPR) and the Data Protection Act 2018.</P>
             <div className="bg-[#0a0f1e] border border-white/5 rounded-xl p-4 mt-3 space-y-1">
               <p className="text-xs text-slate-500"><span className="text-slate-300 font-bold">Data Controller:</span> Izent Global Ltd</p>
               <p className="text-xs text-slate-500"><span className="text-slate-300 font-bold">Contact:</span> support@strikesignal.ng</p>
@@ -51,7 +51,7 @@ export default function Privacy() {
           <Section title="2. What Data We Collect">
             <ul className="space-y-2">
               <Li>Full name and email address (registration)</Li>
-              <Li>Phone number (Sportybet account connection)</Li>
+              <Li>Phone number ($market account connection)</Li>
               <Li>Payment information (processed by Paystack — we do not store card details)</Li>
               <Li>Usage data (pages visited, signals viewed, time on platform)</Li>
               <Li>Device and browser information</Li>
@@ -100,7 +100,7 @@ export default function Privacy() {
             </ul>
           </Section>
 
-          <Section title="7. Your Rights (UK GDPR & NDPR)">
+          <Section title="7. Your Rights (UK GDPR)">
             <P>You have the right to:</P>
             <ul className="space-y-2">
               <Li>Access your personal data</Li>
@@ -122,7 +122,7 @@ export default function Privacy() {
           </Section>
 
           <Section title="10. Third Party Links">
-            <P>StrikeSignal may contain links to third-party sites including Sportybet and Bet9ja. We are not responsible for their privacy practices.</P>
+            <P>StrikeSignal may contain links to third-party sites including $market. We are not responsible for their privacy practices.</P>
           </Section>
 
           <Section title="11. Children">
@@ -135,7 +135,7 @@ export default function Privacy() {
 
           <Section title="13. Contact">
             <P>For privacy enquiries: support@strikesignal.ng</P>
-            <P>Izent Global Ltd — United Kingdom & Nigeria</P>
+            <P>Izent Global Ltd — United Kingdom</P>
           </Section>
         </div>
       </main>

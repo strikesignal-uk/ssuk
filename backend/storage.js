@@ -76,7 +76,7 @@ export async function saveSignal(match, signal) {
       `INSERT INTO signals
         (id, fixture_id, home, away, league, minute, score, xg, danger_attacks, shots,
          pressure, xg_gap, total_goals, bet_type, expected_score, confidence, reason,
-         bet_odds, ai_insight, ai_enhanced, result, created_at, sportybet_share_code, sportybet_bet_link, sportybet_market, bet9ja_code)
+         bet_odds, ai_insight, ai_enhanced, result, created_at, $market_share_code, $market_bet_link, $market_market, $market_code)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)`,
       [
         now.toString(), match.fixtureId, match.home, match.away, match.league,
@@ -85,8 +85,8 @@ export async function saveSignal(match, signal) {
         signal.betType, signal.expectedScore, signal.confidence, signal.reason,
         signal.betOdds || null, signal.aiInsight || '', signal.aiEnhanced || false,
         'pending', new Date(now).toISOString(),
-        signal.sportybet?.shareCode || null, signal.sportybet?.betLink || null, signal.sportybet?.market || null,
-        signal.bookingCodes?.bet9ja || null
+        signal.$market?.shareCode || null, signal.$market?.betLink || null, signal.$market?.market || null,
+        signal.bookingCodes?.$market || null
       ]
     );
     return true;
@@ -104,10 +104,10 @@ export async function saveSignal(match, signal) {
     expectedScore: signal.expectedScore, confidence: signal.confidence, reason: signal.reason,
     betOdds: signal.betOdds || null, aiInsight: signal.aiInsight || '',
     aiEnhanced: signal.aiEnhanced || false, created_at: new Date(now).toISOString(), result: 'pending',
-    sportybet_share_code: signal.sportybet?.shareCode || null,
-    sportybet_bet_link: signal.sportybet?.betLink || null,
-    sportybet_market: signal.sportybet?.market || null,
-    bet9ja_code: signal.bookingCodes?.bet9ja || null
+    $market_share_code: signal.$market?.shareCode || null,
+    $market_bet_link: signal.$market?.betLink || null,
+    $market_market: signal.$market?.market || null,
+    $market_code: signal.bookingCodes?.$market || null
   };
   arr.push(obj);
   writeSignals(arr);
@@ -135,9 +135,9 @@ function dbRowToSignal(row) {
     betType: row.bet_type, expectedScore: row.expected_score, confidence: row.confidence,
     reason: row.reason, betOdds: row.bet_odds, aiInsight: row.ai_insight,
     aiEnhanced: row.ai_enhanced, result: row.result, created_at: row.created_at,
-    sportybet_share_code: row.sportybet_share_code, sportybet_bet_link: row.sportybet_bet_link,
-    sportybet_market: row.sportybet_market,
-    bet9ja_code: row.bet9ja_code || null
+    $market_share_code: row.$market_share_code, $market_bet_link: row.$market_bet_link,
+    $market_market: row.$market_market,
+    $market_code: row.$market_code || null
   };
 }
 
@@ -182,7 +182,7 @@ export async function importSignals(arr) {
           `INSERT INTO signals
             (id, fixture_id, home, away, league, minute, score, xg, danger_attacks, shots,
              pressure, xg_gap, total_goals, bet_type, expected_score, confidence, reason,
-             bet_odds, ai_insight, ai_enhanced, result, created_at, sportybet_share_code, sportybet_bet_link, sportybet_market, bet9ja_code)
+             bet_odds, ai_insight, ai_enhanced, result, created_at, $market_share_code, $market_bet_link, $market_market, $market_code)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
            ON CONFLICT (id) DO NOTHING`,
           [
@@ -191,8 +191,8 @@ export async function importSignals(arr) {
             s.pressure, s.xGGap, s.totalGoals, s.betType, s.expectedScore, s.confidence,
             s.reason, s.betOdds || null, s.aiInsight || '', s.aiEnhanced || false,
             s.result || 'pending', s.created_at || new Date().toISOString(),
-            s.sportybet_share_code || null, s.sportybet_bet_link || null, s.sportybet_market || null,
-            s.bet9ja_code || null
+            s.$market_share_code || null, s.$market_bet_link || null, s.$market_market || null,
+            s.$market_code || null
           ]
         );
         added++;
@@ -217,36 +217,36 @@ export function isUsingVolume() {
   return !!process.env.RAILWAY_VOLUME_MOUNT_PATH || (!!process.env.DATA_DIR && process.env.DATA_DIR !== join(__dirname, 'data'));
 }
 
-// ── SportyBet Integration Storage ───────────────────────────────────────────
+// ── $market Integration Storage ───────────────────────────────────────────
 
-export function getSportybetStorePath(userId) {
+export function get$marketStorePath(userId) {
   if (!userId) userId = 'global';
-  return join(DATA_DIR, `sportybet-${userId}.json`);
+  return join(DATA_DIR, `$market-${userId}.json`);
 }
 
-export function getSportybetLogPath(userId) {
+export function get$marketLogPath(userId) {
   if (!userId) userId = 'global';
-  return join(DATA_DIR, `sportybet-log-${userId}.json`);
+  return join(DATA_DIR, `$market-log-${userId}.json`);
 }
 
-export function readSportybet(userId) {
-  try { return JSON.parse(readFileSync(getSportybetStorePath(userId), 'utf-8')); } catch { return { connected: false, phone: '', password: '', bots: [] }; }
+export function read$market(userId) {
+  try { return JSON.parse(readFileSync(get$marketStorePath(userId), 'utf-8')); } catch { return { connected: false, phone: '', password: '', bots: [] }; }
 }
-export function writeSportybet(userId, data) { writeFileSync(getSportybetStorePath(userId), JSON.stringify(data, null, 2), 'utf-8'); }
+export function write$market(userId, data) { writeFileSync(get$marketStorePath(userId), JSON.stringify(data, null, 2), 'utf-8'); }
 
-export function readSportybetLog(userId) {
-  try { return JSON.parse(readFileSync(getSportybetLogPath(userId), 'utf-8')); } catch { return []; }
+export function read$marketLog(userId) {
+  try { return JSON.parse(readFileSync(get$marketLogPath(userId), 'utf-8')); } catch { return []; }
 }
-export function writeSportybetLog(userId, data) { writeFileSync(getSportybetLogPath(userId), JSON.stringify(data, null, 2), 'utf-8'); }
+export function write$marketLog(userId, data) { writeFileSync(get$marketLogPath(userId), JSON.stringify(data, null, 2), 'utf-8'); }
 
-export function getAllSportybetConfigs() {
+export function getAll$marketConfigs() {
   const configs = [];
   try {
     const files = readdirSync(DATA_DIR);
     for (const f of files) {
-      if (f.startsWith('sportybet-') && f.endsWith('.json') && !f.startsWith('sportybet-log-')) {
-        const userId = f.replace('sportybet-', '').replace('.json', '');
-        const data = readSportybet(userId);
+      if (f.startsWith('$market-') && f.endsWith('.json') && !f.startsWith('$market-log-')) {
+        const userId = f.replace('$market-', '').replace('.json', '');
+        const data = read$market(userId);
         configs.push({ userId, data });
       }
     }

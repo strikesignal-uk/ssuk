@@ -109,14 +109,48 @@ export async function fetchTodayFixtures() {
   try {
     const settings = await getSettings();
     const apiKey = settings.sportmonksApiKey || process.env.SPORTMONKS_API_KEY;
-    if (!apiKey) return [];
+    if (!apiKey) {
+      console.error('[fetchTodayFixtures] ❌ No API key configured');
+      return [];
+    }
     const today = new Date().toISOString().slice(0, 10);
-    const url = `${BASE_URL}/fixtures/date/${today}?include=scores;participants;league;state&api_token=${apiKey}&per_page=100`;
-    const res = await fetch(url);
-    if (!res.ok) return [];
-    const json = await res.json();
-    const data = Array.isArray(json.data) ? json.data : [];
-    return data.map(raw => {
+    console.log(`[fetchTodayFixtures] 📅 Fetching fixtures for ${today}`);
+    
+    let allFixtures = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const url = `${BASE_URL}/fixtures/date/${today}?include=scores;participants;league;state&api_token=${apiKey}&per_page=50&page=${page}`;
+      console.log(`[fetchTodayFixtures] 🔗 Page ${page}:`, url.replace(apiKey, 'KEY_HIDDEN'));
+      const res = await fetch(url);
+      
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        console.error(`[fetchTodayFixtures] ❌ HTTP ${res.status}:`, errText.slice(0, 300));
+        break;
+      }
+      
+      const json = await res.json();
+
+      if (json.message) {
+        console.error(`[fetchTodayFixtures] ⚠️ API message:`, json.message);
+      }
+
+      const data = Array.isArray(json.data) ? json.data : [];
+      console.log(`[fetchTodayFixtures] ✅ Page ${page}: ${data.length} fixtures | pagination:`, JSON.stringify(json.pagination));
+      allFixtures = allFixtures.concat(data);
+
+      if (json.pagination && json.pagination.has_more) {
+        page++;
+      } else {
+        hasMore = false;
+      }
+    }
+
+    console.log(`[fetchTodayFixtures] 📊 Total fixtures fetched: ${allFixtures.length}`);
+
+    return allFixtures.map(raw => {
       const home = raw.participants?.find(p => p.meta?.location === 'home');
       const away = raw.participants?.find(p => p.meta?.location === 'away');
       const homeScore = (raw.scores || []).find(s => s.description === 'CURRENT' && s.participant_id === home?.id);

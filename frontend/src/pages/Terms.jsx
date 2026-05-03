@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 
 const sections = [
-  { title: '1. Introduction', body: 'These Terms and Conditions govern your use of StrikeSignal ("the Platform"), a product of Izent Global Ltd, a company registered in the United Kingdom (Companies House) and Nigeria (Corporate Affairs Commission). By accessing or using StrikeSignal, you agree to be bound by these terms.' },
+  { title: '1. Introduction', body: 'These Terms and Conditions govern your use of StrikeSignal ("the Platform"), a product of Izent Global Ltd, a company registered in the United Kingdom (Companies House). By accessing or using StrikeSignal, you agree to be bound by these terms.' },
   { title: '2. About the Platform', body: 'StrikeSignal is a real-time football signal intelligence platform designed to help users identify statistically high-probability goal moments during live football matches. The platform uses xG (Expected Goals) data and match pressure metrics to generate signals.' },
   { title: '3. Not Financial Advice', body: 'StrikeSignal provides information and educational content only. Nothing on this platform constitutes financial advice, betting advice, or a guarantee of profit. All signals are generated algorithmically based on statistical data. Past performance does not guarantee future results. You are solely responsible for any betting decisions you make.' },
   { title: '4. Eligibility', body: 'You must be at least 18 years of age to use StrikeSignal. By using this platform you confirm you are of legal age to engage in sports betting in your jurisdiction. StrikeSignal does not facilitate or process bets directly.' },
@@ -17,7 +17,7 @@ const sections = [
   { title: '7. Intellectual Property', body: 'All content, designs, algorithms, and signals on StrikeSignal are the intellectual property of Izent Global Ltd. You may not reproduce, distribute, or create derivative works without prior written consent.' },
   { title: '8. Disclaimer of Warranties', body: 'StrikeSignal is provided "as is" without warranties of any kind. We do not guarantee the accuracy, completeness, or timeliness of signals. The platform may experience downtime during maintenance or technical issues.' },
   { title: '9. Limitation of Liability', body: 'To the maximum extent permitted by law, Izent Global Ltd shall not be liable for any direct, indirect, incidental, or consequential losses arising from your use of StrikeSignal, including but not limited to betting losses.' },
-  { title: '10. Governing Law', body: 'These terms are governed by the laws of England and Wales for UK users, and the laws of the Federal Republic of Nigeria for Nigerian users. Disputes shall be resolved in the appropriate jurisdiction.' },
+  { title: '10. Governing Law', body: 'These terms are governed by the laws of England and Wales. Disputes shall be resolved in the appropriate jurisdiction.' },
   { title: '11. Changes to Terms', body: 'We reserve the right to update these terms at any time. Continued use of the platform after changes constitutes acceptance of the new terms.' },
   { title: '12. Contact', body: 'For questions about these terms, contact us at support@strikesignal.ng' },
 ];
@@ -70,7 +70,7 @@ export default function Terms() {
 
         <div className="mt-12 text-center">
           <p className="text-slate-600 text-xs italic">
-            StrikeSignal is a product of Izent Global Ltd. Registered in England & Wales and Nigeria (CAC).
+            StrikeSignal is a product of Izent Global Ltd. Registered in England & Wales.
           </p>
         </div>
       </main>

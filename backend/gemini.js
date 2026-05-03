@@ -1,23 +1,23 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { getSettings } from './settings.js';
 
-let genAI = null;
+let ai = null;
 let currentKey = '';
 
-async function getModel() {
+async function getClient() {
   const settings = await getSettings();
   const apiKey = settings.geminiApiKey || process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
   if (apiKey !== currentKey) {
-    genAI = new GoogleGenerativeAI(apiKey);
+    ai = new GoogleGenAI({ apiKey });
     currentKey = apiKey;
   }
-  return genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  return ai;
 }
 
 export async function aiEnhanceSignal(match, baseSignal) {
-  const model = await getModel();
-  if (!model) return baseSignal;
+  const client = await getClient();
+  if (!client) return baseSignal;
 
   const prompt = `You are a football (soccer) live betting analyst AI. Analyze this live match data and provide a prediction.
 
@@ -48,8 +48,11 @@ Based on the match statistics, provide your enhanced analysis. Respond in EXACTL
 }`;
 
   try {
-    const result = await model.generateContent(prompt);
-    const text = result.response.text().trim();
+    const result = await client.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+    const text = result.text.trim();
     // Extract JSON from the response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return baseSignal;
@@ -60,7 +63,7 @@ Based on the match statistics, provide your enhanced analysis. Respond in EXACTL
     if (!parsed.betType || !parsed.confidence || !parsed.reason) return baseSignal;
 
     return {
-      ...baseSignal,                    // ← preserve sportybet, bookingCodes, betOdds etc.
+      ...baseSignal,                    // ← preserve $market, bookingCodes, betOdds etc.
       betType: parsed.betType,
       expectedScore: parsed.expectedScore || baseSignal.expectedScore,
       confidence: parsed.confidence,

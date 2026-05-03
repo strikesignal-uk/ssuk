@@ -1,9 +1,9 @@
 import fetch from 'node-fetch';
 
-export async function convertToSportybet(signal) {
+export async function convertTo$market(signal) {
   try {
     if (!process.env.CONVERTER_URL) {
-      console.warn("Warning: CONVERTER_URL not set. Sportybet links will not be generated.");
+      console.warn("Warning: CONVERTER_URL not set. $market links will not be generated.");
       return null;
     }
 
@@ -45,10 +45,10 @@ export async function convertToSportybet(signal) {
       let betLink = data.betLink;
       
       if (!betLink) {
-        betLink = `https://www.sportybet.com/ng/m/?shareCode=${shareCode}&c=ng#betslip`;
+        betLink = `https://www.$market.com/ng/m/?shareCode=${shareCode}&c=ng#betslip`;
       }
 
-      console.log(`✅ Sportybet link generated: ${shareCode} for ${signal.home} vs ${signal.away}`);
+      console.log(`✅ $market link generated: ${shareCode} for ${signal.home} vs ${signal.away}`);
 
       return {
         shareCode,

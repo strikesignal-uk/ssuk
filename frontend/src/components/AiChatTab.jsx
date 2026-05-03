@@ -59,8 +59,8 @@ export default function AiChatTab() {
           id: (Date.now() + 1).toString(),
           role: 'ai',
           content: result.data.message,
-          bet9jaLoading: false,
-          bet9jaError: false,
+          $marketLoading: false,
+          $marketError: false,
           codeData: result.data.booking_code ? {
             code: result.data.booking_code,
             totalOdds: result.data.total_odds,
@@ -72,10 +72,7 @@ export default function AiChatTab() {
         
         setMessages(prev => [...prev, aiMessage]);
 
-        // Trigger Fallback if needed
-        if (aiMessage.codeData && !aiMessage.codeData.platforms?.bet9ja && aiMessage.codeData.slipData) {
-          triggerBet9jaFallback(aiMessage.id, aiMessage.codeData.slipData);
-        }
+
       } else {
         setMessages(prev => [...prev, { id: Date.now().toString(), role: 'ai', content: result.message || "I couldn't process that request." }]);
       }
@@ -85,80 +82,6 @@ export default function AiChatTab() {
     setIsTyping(false);
   };
 
-  const searchBet9jaClient = async (term) => {
-    try {
-      const body = `TERM=${encodeURIComponent(term)}&START=0&ROWS=10000&ISCOMPETITION=0&ISEVENT=1&ISTEAM=0&GROUPBYFIELD=sp_id&GROUPBYLIMIT=11`;
-      const resp = await fetch('https://apigw.bet9ja.com/sportsbook/search/SearchV2?source=desktop', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body
-      });
-      const json = await resp.json();
-      return json.D?.S || null;
-    } catch {
-      return null;
-    }
-  };
-
-  const buildBet9jaCode = async (slipData, matchedSelections) => {
-    try {
-      const resp = await fetch(`${API}/api/ai-chat/bet9ja-build`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ selections: slipData, matchedSelections })
-      });
-      const data = await resp.json();
-      if (data.success) {
-        return { bet9ja: data.bet9ja, bet9ja_url: data.bet9ja_url };
-      }
-    } catch {
-      return null;
-    }
-  };
-
-  const triggerBet9jaFallback = async (messageId, slipData) => {
-    setMessages(prev => prev.map(m => m.id === messageId ? { ...m, bet9jaLoading: true, bet9jaError: false } : m));
-
-    try {
-      let matchedSelections = [];
-      // Need to extract team names to search. slipData might have home_team, away_team
-      // We will loop through the slipData items.
-      if (Array.isArray(slipData)) {
-        for (const item of slipData) {
-          const term = item.home_team || item.event_name?.split(' - ')[0] || item.team_a;
-          if (term) {
-             const searchResult = await searchBet9jaClient(term);
-             // We just collect search results and pass them to backend to parse
-             matchedSelections.push({ item, searchResult });
-          }
-        }
-      }
-
-      const buildResult = await buildBet9jaCode(slipData, matchedSelections);
-
-      setMessages(prev => prev.map(m => {
-        if (m.id === messageId && m.codeData) {
-          return {
-            ...m,
-            bet9jaLoading: false,
-            bet9jaError: !buildResult?.bet9ja,
-            codeData: {
-              ...m.codeData,
-              platforms: {
-                ...m.codeData.platforms,
-                bet9ja: buildResult?.bet9ja || null,
-                bet9ja_url: buildResult?.bet9ja_url || null
-              }
-            }
-          };
-        }
-        return m;
-      }));
-
-    } catch (err) {
-      setMessages(prev => prev.map(m => m.id === messageId ? { ...m, bet9jaLoading: false, bet9jaError: true } : m));
-    }
-  };
 
   // --- Handlers ---
   const onFileChange = (e) => {
@@ -219,8 +142,6 @@ export default function AiChatTab() {
 
   const BookingCodeCard = ({ msg }) => {
     const data = msg.codeData;
-    const isB9jaLoading = msg.bet9jaLoading;
-    const isB9jaError = msg.bet9jaError;
 
     return (
       <div className="mt-4 bg-[#1e2d3d] rounded-2xl overflow-hidden border border-white/10 shadow-xl max-w-sm w-full">
@@ -244,23 +165,23 @@ export default function AiChatTab() {
             </div>
           )}
 
-          {/* SportyBet */}
+          {/* $market */}
           <div className="bg-green-900/20 border border-green-500/20 rounded-xl p-4">
             <div className="text-[10px] font-bold text-green-500 uppercase tracking-widest mb-2 flex justify-between items-center">
-              <span>SportyBet Nigeria</span>
-              {data.platforms?.sportybet && <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />}
+              <span>$market</span>
+              {data.platforms?.$market && <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />}
             </div>
-            {data.platforms?.sportybet ? (
+            {data.platforms?.$market ? (
               <div className="space-y-3">
                 <div className="text-2xl font-mono font-bold text-white text-center tracking-widest bg-green-900/40 py-2 rounded-lg border border-green-500/10">
-                  {data.platforms.sportybet}
+                  {data.platforms.$market}
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => copyToClipboard(data.platforms.sportybet)} className="flex-1 flex items-center justify-center gap-1.5 bg-green-600/20 hover:bg-green-600/30 text-green-400 font-bold text-xs py-2 rounded-lg transition-colors">
+                  <button onClick={() => copyToClipboard(data.platforms.$market)} className="flex-1 flex items-center justify-center gap-1.5 bg-green-600/20 hover:bg-green-600/30 text-green-400 font-bold text-xs py-2 rounded-lg transition-colors">
                     <Copy size={14} /> Copy
                   </button>
-                  {data.platforms?.sportybet_url && (
-                    <button onClick={() => window.open(data.platforms.sportybet_url, '_blank')} className="flex-1 flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-500 text-white font-bold text-xs py-2 rounded-lg transition-colors">
+                  {data.platforms?.$market_url && (
+                    <button onClick={() => window.open(data.platforms.$market_url, '_blank')} className="flex-1 flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-500 text-white font-bold text-xs py-2 rounded-lg transition-colors">
                       <ExternalLink size={14} /> Open
                     </button>
                   )}
@@ -271,42 +192,7 @@ export default function AiChatTab() {
             )}
           </div>
 
-          {/* Bet9ja */}
-          <div className="bg-amber-900/20 border border-amber-500/20 rounded-xl p-4">
-            <div className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-2 flex justify-between items-center">
-              <span>Bet9ja</span>
-              {data.platforms?.bet9ja && <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />}
-            </div>
-            {isB9jaLoading ? (
-              <div className="flex flex-col items-center justify-center py-3 space-y-2">
-                <RefreshCw size={18} className="text-amber-500 animate-spin" />
-                <span className="text-[10px] font-bold text-amber-500/70 uppercase tracking-widest">Searching Bet9ja...</span>
-              </div>
-            ) : data.platforms?.bet9ja ? (
-              <div className="space-y-3">
-                <div className="text-2xl font-mono font-bold text-white text-center tracking-widest bg-amber-900/40 py-2 rounded-lg border border-amber-500/10">
-                  {data.platforms.bet9ja}
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => copyToClipboard(data.platforms.bet9ja)} className="flex-1 flex items-center justify-center gap-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 font-bold text-xs py-2 rounded-lg transition-colors">
-                    <Copy size={14} /> Copy
-                  </button>
-                  <button onClick={() => window.open(`https://web.bet9ja.com/Sport/Coupon/${data.platforms.bet9ja}`, '_blank')} className="flex-1 flex items-center justify-center gap-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs py-2 rounded-lg transition-colors">
-                    <ExternalLink size={14} /> Open
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center space-y-2 py-2">
-                <div className="text-xs text-amber-500/60 font-semibold">Code not available</div>
-                {isB9jaError && (
-                  <button onClick={() => triggerBet9jaFallback(msg.id, data.slipData)} className="text-[10px] uppercase font-bold text-amber-500 hover:text-amber-400 underline underline-offset-2">
-                    Retry Search
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
+
         </div>
       </div>
     );

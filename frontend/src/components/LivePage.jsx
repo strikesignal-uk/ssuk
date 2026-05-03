@@ -109,36 +109,36 @@ function SignalCard({ signal, onRetryConvert }) {
             </button>
           </div>
         </div>
-      ) : (signal.sportybet && signal.sportybet.betLink) ? (
-        /* ── Has Sportybet link — show Bet Now ────────────────────────────────── */
+      ) : (signal.$market && signal.$market.betLink) ? (
+        /* ── Has $market link — show Bet Now ────────────────────────────────── */
         <div className="border-t border-white/5 bg-[#0a0f1e]/60 px-4 py-3">
           <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-2">Book This Bet</div>
           <div className="flex gap-2 flex-wrap">
             <button
-              onClick={e => { e.stopPropagation(); window.open(signal.sportybet.betLink, '_blank'); }}
+              onClick={e => { e.stopPropagation(); window.open(signal.$market.betLink, '_blank'); }}
               className="flex-1 min-w-[120px] flex items-center justify-center gap-1.5 text-white font-bold text-xs py-2.5 px-3 rounded-xl transition-all hover:brightness-110"
               style={{ backgroundColor: '#16a34a', height: '44px', borderRadius: '8px' }}
             >
-              ⚽ Bet Now on Sportybet
-              {signal.sportybet.shareCode && <span className="bg-green-800/60 px-1.5 py-0.5 rounded font-mono text-[10px]">{signal.sportybet.shareCode}</span>}
+              ⚽ Bet Now on $market
+              {signal.$market.shareCode && <span className="bg-green-800/60 px-1.5 py-0.5 rounded font-mono text-[10px]">{signal.$market.shareCode}</span>}
             </button>
-            {signal.bookingCodes?.bet9ja && (
+            {signal.bookingCodes?.$market && (
               <button
-                onClick={e => { e.stopPropagation(); navigator.clipboard?.writeText(signal.bookingCodes.bet9ja).catch(()=>{}); window.open(`https://web.bet9ja.com/Sport/Coupon/${signal.bookingCodes.bet9ja}`, '_blank'); }}
+                onClick={e => { e.stopPropagation(); navigator.clipboard?.writeText(signal.bookingCodes.$market).catch(()=>{}); window.open(`https://web.$market.com/Sport/Coupon/${signal.bookingCodes.$market}`, '_blank'); }}
                 className="flex-1 min-w-[120px] flex items-center justify-center gap-1.5 bg-[#007b5e] hover:brightness-110 text-white font-bold text-xs py-2.5 px-3 rounded-xl transition-all"
               >
-                🎯 Bet9ja <span className="bg-emerald-900/60 px-1.5 py-0.5 rounded font-mono text-[10px]">{signal.bookingCodes.bet9ja}</span>
+                🎯 $market <span className="bg-emerald-900/60 px-1.5 py-0.5 rounded font-mono text-[10px]">{signal.bookingCodes.$market}</span>
               </button>
             )}
           </div>
           <div className="text-[10px] text-slate-700 mt-1.5 text-center">
-            Share code: {signal.sportybet.shareCode}
-            {signal.sportybet.totalOdds ? ` · Odds: ${signal.sportybet.totalOdds}` : ''}
-            {signal.sportybet.market ? ` · ${signal.sportybet.market}` : ''}
+            Share code: {signal.$market.shareCode}
+            {signal.$market.totalOdds ? ` · Odds: ${signal.$market.totalOdds}` : ''}
+            {signal.$market.market ? ` · ${signal.$market.market}` : ''}
           </div>
         </div>
       ) : (
-        /* ── No Sportybet link — show getting code / retry ────────────────────── */
+        /* ── No $market link — show getting code / retry ────────────────────── */
         <div className="border-t border-white/5 bg-[#0a0f1e]/60 px-4 py-3">
           <div className="flex flex-col gap-2 items-center">
             {retrying ? (
@@ -155,7 +155,7 @@ function SignalCard({ signal, onRetryConvert }) {
                 className="w-full flex items-center justify-center gap-1.5 font-bold text-xs py-2.5 px-3 rounded-xl transition-all hover:brightness-110 cursor-pointer"
                 style={{ backgroundColor: '#374151', color: '#d1d5db', height: '44px', borderRadius: '8px' }}
               >
-                🔄 Get Sportybet Code
+                🔄 Get $market Code
               </button>
             )}
             {retryError && (
@@ -193,7 +193,7 @@ export default function LivePage({ signals, liveMatches, onRefresh }) {
         // Update the local copy so the UI refreshes immediately
         setLocalSignals(prev => {
           const base = prev || signals;
-          return base.map(s => s.id === signalId ? { ...s, sportybet: data.signal.sportybet, bookingCodes: data.signal.bookingCodes } : s);
+          return base.map(s => s.id === signalId ? { ...s, $market: data.signal.$market, bookingCodes: data.signal.bookingCodes } : s);
         });
       }
       return data;

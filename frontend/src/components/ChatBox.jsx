@@ -7,7 +7,7 @@ function genId() { return 'ss_' + Date.now() + '_' + Math.random().toString(36).
 const QUICK_REPLIES = [
   'How do signals work?',
   'Subscription pricing',
-  'Connect Sportybet',
+  'Connect $market',
   'Talk to support team',
 ];
 
@@ -17,7 +17,7 @@ I can help you with:
 • How signals work
 • Account and subscription questions
 • Technical support
-• Sportybet bet placement
+• $market bet placement
 
 Type your question or choose an option below:`;
 

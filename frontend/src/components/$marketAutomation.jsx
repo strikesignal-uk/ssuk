@@ -5,7 +5,7 @@ const API = import.meta.env.VITE_API_URL || '';
 const token = () => localStorage.getItem('ss_token');
 const hdrs = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` });
 
-export default function SportybetAutomation({ status, isPro }) {
+export default function $marketAutomation({ status, isPro }) {
   const [bots, setBots] = useState([]);
   const [logs, setLogs] = useState([]);
   const [logStats, setLogStats] = useState({ success: 0, error: 0, total: 0 });
@@ -22,8 +22,8 @@ export default function SportybetAutomation({ status, isPro }) {
   const loadBots = async () => {
     try {
       const [bRes, sRes] = await Promise.all([
-        fetch(`${API}/api/sportybet/bots`, { headers: hdrs() }),
-        fetch(`${API}/api/sportybet/bots/stats`, { headers: hdrs() })
+        fetch(`${API}/api/$market/bots`, { headers: hdrs() }),
+        fetch(`${API}/api/$market/bots/stats`, { headers: hdrs() })
       ]);
       if (bRes.ok) setBots(await bRes.json());
       if (sRes.ok) setBotStats(await sRes.json());
@@ -32,7 +32,7 @@ export default function SportybetAutomation({ status, isPro }) {
 
   const fetchExecutionLog = async () => {
     try {
-      const res = await fetch(`${API}/api/sportybet/execution-log`, { headers: hdrs() });
+      const res = await fetch(`${API}/api/$market/execution-log`, { headers: hdrs() });
       if (res.ok) {
         const data = await res.json();
         setLogs(data.logs || []);
@@ -56,7 +56,7 @@ export default function SportybetAutomation({ status, isPro }) {
     }
     
     try {
-      await fetch(`${API}/api/sportybet/execution-log`, { method: 'DELETE', headers: hdrs() });
+      await fetch(`${API}/api/$market/execution-log`, { method: 'DELETE', headers: hdrs() });
       setLogs([]);
       setLogStats({ success: 0, error: 0, total: 0 });
       prevLogCount.current = 0;
@@ -74,26 +74,26 @@ export default function SportybetAutomation({ status, isPro }) {
   }, []);
 
   const toggleBot = async (id, active) => {
-    await fetch(`${API}/api/sportybet/bots/${id}/toggle`, { method: 'PATCH', headers: hdrs(), body: JSON.stringify({ active }) });
+    await fetch(`${API}/api/$market/bots/${id}/toggle`, { method: 'PATCH', headers: hdrs(), body: JSON.stringify({ active }) });
     setBots(bots.map(b => b.id === id ? { ...b, active } : b));
   };
 
   const deleteBot = async (id) => {
     if (window.confirm("Delete this bot? This cannot be undone.")) {
-      const res = await fetch(`${API}/api/sportybet/bots/${id}`, { method: 'DELETE', headers: hdrs() });
+      const res = await fetch(`${API}/api/$market/bots/${id}`, { method: 'DELETE', headers: hdrs() });
       if (res.ok) setBots(bots.filter(b => b.id !== id));
     }
   };
 
   const saveBot = async (formData) => {
     if (editingBot && editingBot.id) {
-      const res = await fetch(`${API}/api/sportybet/bots/${editingBot.id}`, { method: 'PUT', headers: hdrs(), body: JSON.stringify(formData) });
+      const res = await fetch(`${API}/api/$market/bots/${editingBot.id}`, { method: 'PUT', headers: hdrs(), body: JSON.stringify(formData) });
       if (res.ok) {
         const updated = await res.json();
         setBots(bots.map(b => b.id === updated.id ? updated : b));
       }
     } else {
-      const res = await fetch(`${API}/api/sportybet/bots`, { method: 'POST', headers: hdrs(), body: JSON.stringify(formData) });
+      const res = await fetch(`${API}/api/$market/bots`, { method: 'POST', headers: hdrs(), body: JSON.stringify(formData) });
       if (res.ok) setBots([...bots, await res.json()]);
     }
     setShowModal(false);
@@ -168,19 +168,6 @@ export default function SportybetAutomation({ status, isPro }) {
       </div>
 
       {/* RECOMMENDED & BOTS */}
-      {!isPro ? (
-        <div className="bg-[#1a2744] border border-[#1e3a8a] rounded-2xl p-8 text-center space-y-4">
-          <div className="text-4xl">💎</div>
-          <h3 className="text-xl font-black text-white">Upgrade to Pro</h3>
-          <p className="text-slate-400 text-sm max-w-sm mx-auto">
-            Automated bot execution is a Pro-only feature. Upgrade your subscription to start creating and running bots.
-          </p>
-          <a href="/pricing" className="inline-block bg-gradient-to-r from-blue-600 to-blue-400 text-white font-black px-6 py-3 rounded-xl mt-4">
-            View Pro Plans
-          </a>
-        </div>
-      ) : (
-        <>
           {/* RECOMMENDED */}
           <div className="space-y-4">
             <div>
@@ -231,7 +218,7 @@ export default function SportybetAutomation({ status, isPro }) {
                 <div className="p-8 text-center text-slate-500 text-sm">No automation bots configured yet.</div>
               ) : (
             bots.map(b => {
-              const stakeDisplay = b.stakingMethod?.includes('percent') ? `${b.stakeValue}% of bank` : `₦${b.stakeValue}`;
+              const stakeDisplay = b.stakingMethod?.includes('percent') ? `${b.stakeValue}% of bank` : `£${b.stakeValue}`;
               const oversLabel = b.oversLine === 'over_0.5' ? 'O0.5' : b.oversLine === 'over_2.5' ? 'O2.5' : 'O1.5';
               let tagText = 'CUSTOM';
               if (b.exitStrategy === 'early_edge') tagText = 'SS EARLY EDGE';
@@ -343,8 +330,7 @@ export default function SportybetAutomation({ status, isPro }) {
           )}
         </div>
       </div>
-      </>
-      )}
+
     </div>
   );
 }

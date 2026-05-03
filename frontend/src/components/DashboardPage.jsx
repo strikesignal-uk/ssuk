@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, AreaChart, ReferenceLine } from 'recharts';
 
 const API = import.meta.env.VITE_API_URL;
-const fmt = n => '₦' + Math.abs(Number(n)).toLocaleString('en-NG');
+const fmt = n => '£' + Math.abs(Number(n)).toLocaleString('en-NG');
 const DEFAULT_STAKE = 2000;
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
@@ -361,7 +361,7 @@ export default function DashboardPage({ user }) {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
                 <XAxis dataKey="date" tick={{ fill: '#475569', fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: '#475569', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `₦${(v/1000).toFixed(0)}k`} />
+                <YAxis tick={{ fill: '#475569', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `£${(v/1000).toFixed(0)}k`} />
                 <Tooltip content={<ChartTooltip />} />
                 <ReferenceLine y={0} stroke="#334155" strokeDasharray="4 4" />
                 <Area type="monotone" dataKey="cumulative" stroke="#3b82f6" strokeWidth={2} fill="url(#posFill)" dot={false} activeDot={{ r: 4, fill: '#3b82f6' }} />
